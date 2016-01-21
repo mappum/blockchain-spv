@@ -1,6 +1,6 @@
 {
   "name": "blockchain-spv",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Stores Bitcoin block headers and verifies transactions with SPV",
   "main": "index.js",
   "scripts": {
