@@ -1,6 +1,5 @@
 var test = require('tape')
 var bitcore = require('bitcore-lib')
-var BN = bitcore.crypto.BN
 var constants = require('webcoin-bitcoin')
 var u = require('bitcoin-util')
 var memdown = require('memdown')
@@ -19,7 +18,7 @@ function endStore (store, t) {
   })
 }
 
-var maxTarget = new BN('ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'hex')
+var maxTarget = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
 
 function createBlock (prev, nonce, bits) {
   var i = nonce || 0

@@ -17,11 +17,12 @@
   "devDependencies": {
     "memdown": "^1.1.1",
     "standard": "^5.4.1",
-    "tap": "^5.1.1"
+    "tap": "^5.1.1",
+    "tape": "^4.4.0"
   },
   "dependencies": {
     "async": "^1.5.2",
-    "bitcoin-util": "0.0.0",
+    "bitcoin-util": "0.0.1",
     "bitcore-lib": "^0.13.11",
     "browserify-buffertools": "^1.0.2",
     "buffertools": "^2.1.3",
