@@ -1,8 +1,8 @@
 var test = require('tape')
 var bitcore = require('bitcore-lib')
-var constants = require('webcoin-bitcoin')
 var u = require('bitcoin-util')
 var memdown = require('memdown')
+var params = require('webcoin-bitcoin').blockchain
 var BlockStore = require('../lib/blockStore.js')
 var Blockchain = require('../lib/blockchain.js')
 
@@ -18,35 +18,55 @@ function endStore (store, t) {
   })
 }
 
-var maxTarget = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+var maxTarget = new Buffer('7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'hex')
 
-function createBlock (prev, nonce, bits) {
+function createBlock (prev, nonce, bits, validProof) {
   var i = nonce || 0
+  validProof = validProof == null ? true : validProof
   var header
   do {
     header = new bitcore.BlockHeader({
       version: 1,
-      prevHash: prev ? u.toHash(prev.hash) : constants.zeroHash,
-      merkleRoot: constants.zeroHash,
+      prevHash: prev ? u.toHash(prev.hash) : u.nullHash,
+      merkleRoot: u.nullHash,
       time: prev ? (prev.time + 1) : Math.floor(Date.now() / 1000),
-      bits: bits || (prev ? prev.bits : u.toCompactTarget(maxTarget)),
+      bits: bits || (prev ? prev.bits : u.compressTarget(maxTarget)),
       nonce: i++
     })
-  } while (!header.validProofOfWork())
+  } while ((validProof && !header.validProofOfWork()) ||
+        (!validProof && header.validProofOfWork()))
   return header
+}
+
+var defaultTestParams = {
+  genesisHeader: {
+    version: 1,
+    prevHash: u.nullHash,
+    merkleRoot: u.nullHash,
+    time: Math.floor(Date.now() / 1000),
+    bits: u.compressTarget(maxTarget),
+    nonce: 0
+  },
+  checkpoints: null
+}
+
+function createTestParams (opts) {
+  var testParams = Object.assign({}, params)
+  testParams = Object.assign(testParams, defaultTestParams)
+  return Object.assign(testParams, opts)
 }
 
 test('creating blockchain instances', function (t) {
   t.test('create blockchain with instantiated BlockStore', function (t) {
     t.doesNotThrow(function () {
       var store = new BlockStore({ db: memdown })
-      var chain = new Blockchain({ store: store })
+      var chain = new Blockchain({ store: store, params: params })
       endStore(chain.store, t)
     })
   })
   t.test('create blockchain with db instead of store', function (t) {
     t.doesNotThrow(function () {
-      var chain = new Blockchain({ db: memdown })
+      var chain = new Blockchain({ db: memdown, params: params })
       endStore(chain.store, t)
     })
   })
@@ -54,17 +74,21 @@ test('creating blockchain instances', function (t) {
 })
 
 test('blockchain paths', function (t) {
-  var genesis = new bitcore.BlockHeader({
-    version: 1,
-    prevHash: constants.zeroHash,
-    merkleRoot: constants.zeroHash,
-    time: Math.floor(Date.now() / 1000),
-    bits: u.toCompactTarget(maxTarget),
-    nonce: 0
+  var testParams = createTestParams({
+    genesisHeader: {
+      version: 1,
+      prevHash: u.nullHash,
+      merkleRoot: u.nullHash,
+      time: Math.floor(Date.now() / 1000),
+      bits: u.compressTarget(maxTarget),
+      nonce: 0
+    },
+    interval: 10
   })
+  var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
   var chain = new Blockchain({
     maxTarget: maxTarget,
-    genesis: genesis
+    params: testParams
   })
 
   var headers = []
@@ -177,18 +201,13 @@ test('blockchain paths', function (t) {
 })
 
 test('blockchain verification', function (t) {
-  var genesis = new bitcore.BlockHeader({
-    version: 1,
-    prevHash: constants.zeroHash,
-    merkleRoot: constants.zeroHash,
-    time: Math.floor(Date.now() / 1000),
-    bits: u.toCompactTarget(maxTarget),
-    nonce: 0
-  })
-  var chain = new Blockchain({
-    maxTarget: maxTarget,
-    genesis: genesis,
+  var testParams = createTestParams({
     interval: 10
+  })
+  var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
+  var chain = new Blockchain({
+    genesis: genesis,
+    params: testParams
   })
 
   var headers = []
@@ -226,32 +245,31 @@ test('blockchain verification', function (t) {
     block.bits = 0x1d00ffff
     chain.processHeaders([ block ], function (err) {
       t.ok(err)
-      t.equal(err.message, 'Unexpected difficulty change')
+      t.equal(err.message, 'Unexpected difficulty change at height 7')
       t.end()
     })
   })
 
   t.test('error on header with invalid proof of work', function (t) {
-    var block = createBlock(headers[8])
-    block.bits = 0x00000001
+    var block = createBlock(headers[8], 0, genesis.bits, false)
     chain.processHeaders([ block ], function (err) {
       t.ok(err)
-      t.equal(err.message, 'Invalid proof of work')
+      t.equal(err.message, 'Mining hash is above target')
       t.end()
     })
   })
 
   t.test('error on header with invalid difficulty change', function (t) {
-    var block = createBlock(headers[8], 0, 0x2200ffff)
+    var block = createBlock(headers[8], 0, 0x1f70ffff)
     chain.processHeaders([ block ], function (err) {
       t.ok(err)
-      t.equal(err.message, 'Bits in block (2200ffff) is different than expected (213fffc0)')
+      t.equal(err.message, 'Bits in block (1f70ffff) is different than expected (207fffff)')
       t.end()
     })
   })
 
   t.test('accept valid difficulty change', function (t) {
-    var block = createBlock(headers[8], 0, 0x213fffc0)
+    var block = createBlock(headers[8], 0, 0x207fffff)
     chain.processHeaders([ block ], t.end)
   })
 
@@ -261,17 +279,12 @@ test('blockchain verification', function (t) {
 })
 
 test('blockchain queries', function (t) {
-  var genesis = new bitcore.BlockHeader({
-    version: 1,
-    prevHash: constants.zeroHash,
-    merkleRoot: constants.zeroHash,
-    time: Math.floor(Date.now() / 1000),
-    bits: u.toCompactTarget(maxTarget),
-    nonce: 0
-  })
+  var testParams = createTestParams()
+  var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
   var chain = new Blockchain({
     maxTarget: maxTarget,
-    genesis: genesis
+    genesis: genesis,
+    params: testParams
   })
 
   var headers = []
