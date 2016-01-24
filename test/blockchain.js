@@ -60,13 +60,13 @@ test('creating blockchain instances', function (t) {
   t.test('create blockchain with instantiated BlockStore', function (t) {
     t.doesNotThrow(function () {
       var store = new BlockStore({ db: memdown })
-      var chain = new Blockchain({ store: store, params: params })
+      var chain = new Blockchain(params, { store: store })
       endStore(chain.store, t)
     })
   })
   t.test('create blockchain with db instead of store', function (t) {
     t.doesNotThrow(function () {
-      var chain = new Blockchain({ db: memdown, params: params })
+      var chain = new Blockchain(params, { db: memdown })
       endStore(chain.store, t)
     })
   })
@@ -86,9 +86,8 @@ test('blockchain paths', function (t) {
     interval: 10
   })
   var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
-  var chain = new Blockchain({
-    maxTarget: maxTarget,
-    params: testParams
+  var chain = new Blockchain(testParams, {
+    maxTarget: maxTarget
   })
 
   var headers = []
@@ -205,9 +204,8 @@ test('blockchain verification', function (t) {
     interval: 10
   })
   var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
-  var chain = new Blockchain({
-    genesis: genesis,
-    params: testParams
+  var chain = new Blockchain(testParams, {
+    genesis: genesis
   })
 
   var headers = []
@@ -281,10 +279,9 @@ test('blockchain verification', function (t) {
 test('blockchain queries', function (t) {
   var testParams = createTestParams()
   var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
-  var chain = new Blockchain({
+  var chain = new Blockchain(testParams, {
     maxTarget: maxTarget,
-    genesis: genesis,
-    params: testParams
+    genesis: genesis
   })
 
   var headers = []
