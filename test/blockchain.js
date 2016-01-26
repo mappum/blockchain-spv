@@ -1,9 +1,9 @@
 var test = require('tape')
 var bitcore = require('bitcore-lib')
 var u = require('bitcoin-util')
+var levelup = require('levelup')
 var memdown = require('memdown')
 var params = require('webcoin-bitcoin').blockchain
-var BlockStore = require('../lib/blockStore.js')
 var Blockchain = require('../lib/blockchain.js')
 
 function deleteStore (store, cb) {
@@ -56,21 +56,12 @@ function createTestParams (opts) {
   return Object.assign(testParams, opts)
 }
 
-test('creating blockchain instances', function (t) {
-  t.test('create blockchain with instantiated BlockStore', function (t) {
-    t.doesNotThrow(function () {
-      var store = new BlockStore({ db: memdown })
-      var chain = new Blockchain(params, { store: store })
-      endStore(chain.store, t)
-    })
+test('create blockchain instance', function (t) {
+  t.doesNotThrow(function () {
+    var db = levelup('chain', { db: memdown })
+    var chain = new Blockchain(params, db)
+    endStore(chain.store, t)
   })
-  t.test('create blockchain with db instead of store', function (t) {
-    t.doesNotThrow(function () {
-      var chain = new Blockchain(params, { db: memdown })
-      endStore(chain.store, t)
-    })
-  })
-  t.end()
 })
 
 test('blockchain paths', function (t) {
@@ -86,9 +77,8 @@ test('blockchain paths', function (t) {
     interval: 10
   })
   var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
-  var chain = new Blockchain(testParams, {
-    maxTarget: maxTarget
-  })
+  var db = levelup('paths.chain', { db: memdown })
+  var chain = new Blockchain(testParams, db)
 
   var headers = []
   t.test('headers add to blockchain', function (t) {
@@ -97,7 +87,7 @@ test('blockchain paths', function (t) {
       block = createBlock(block)
       headers.push(block)
     }
-    chain.processHeaders(headers, t.end)
+    chain.addHeaders(headers, t.end)
   })
 
   t.test('simple path with no fork', function (t) {
@@ -145,7 +135,7 @@ test('blockchain paths', function (t) {
       block = createBlock(block, 0xffffff)
       headers2.push(block)
     }
-    chain.processHeaders(headers2, t.end)
+    chain.addHeaders(headers2, t.end)
   })
 
   t.test('path with fork', function (t) {
@@ -203,24 +193,23 @@ test('blockchain verification', function (t) {
   var testParams = createTestParams({
     interval: 10
   })
-  var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
-  var chain = new Blockchain(testParams, {
-    genesis: genesis
-  })
+  var db = levelup('verification.chain', { db: memdown })
+  var chain = new Blockchain(testParams, db)
 
   var headers = []
+  var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
   t.test('headers add to blockchain', function (t) {
     var block = genesis
     for (var i = 0; i < 9; i++) {
       block = createBlock(block)
       headers.push(block)
     }
-    chain.processHeaders(headers, t.end)
+    chain.addHeaders(headers, t.end)
   })
 
   t.test("error on header that doesn't connect", function (t) {
     var block = createBlock()
-    chain.processHeaders([ block ], function (err) {
+    chain.addHeaders([ block ], function (err) {
       t.ok(err)
       t.equal(err.message, 'Block does not connect to chain')
       t.end()
@@ -231,7 +220,7 @@ test('blockchain verification', function (t) {
     var block1 = createBlock(headers[5], 10000)
     var block2 = createBlock(headers[6], 10000)
 
-    chain.processHeaders([ block1, block2 ], function (err) {
+    chain.addHeaders([ block1, block2 ], function (err) {
       t.ok(err)
       t.equal(err.message, 'Block does not connect to previous')
       t.end()
@@ -241,7 +230,7 @@ test('blockchain verification', function (t) {
   t.test('error on header with unexpected difficulty change', function (t) {
     var block = createBlock(headers[5])
     block.bits = 0x1d00ffff
-    chain.processHeaders([ block ], function (err) {
+    chain.addHeaders([ block ], function (err) {
       t.ok(err)
       t.equal(err.message, 'Unexpected difficulty change at height 7')
       t.end()
@@ -250,7 +239,7 @@ test('blockchain verification', function (t) {
 
   t.test('error on header with invalid proof of work', function (t) {
     var block = createBlock(headers[8], 0, genesis.bits, false)
-    chain.processHeaders([ block ], function (err) {
+    chain.addHeaders([ block ], function (err) {
       t.ok(err)
       t.equal(err.message, 'Mining hash is above target')
       t.end()
@@ -259,7 +248,7 @@ test('blockchain verification', function (t) {
 
   t.test('error on header with invalid difficulty change', function (t) {
     var block = createBlock(headers[8], 0, 0x1f70ffff)
-    chain.processHeaders([ block ], function (err) {
+    chain.addHeaders([ block ], function (err) {
       t.ok(err)
       t.equal(err.message, 'Bits in block (1f70ffff) is different than expected (207fffff)')
       t.end()
@@ -268,7 +257,7 @@ test('blockchain verification', function (t) {
 
   t.test('accept valid difficulty change', function (t) {
     var block = createBlock(headers[8], 0, 0x207fffff)
-    chain.processHeaders([ block ], t.end)
+    chain.addHeaders([ block ], t.end)
   })
 
   t.test('teardown', function (t) {
@@ -279,10 +268,8 @@ test('blockchain verification', function (t) {
 test('blockchain queries', function (t) {
   var testParams = createTestParams()
   var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
-  var chain = new Blockchain(testParams, {
-    maxTarget: maxTarget,
-    genesis: genesis
-  })
+  var db = levelup('queries.chain', { db: memdown })
+  var chain = new Blockchain(testParams, db)
 
   var headers = []
   t.test('setup', function (t) {
@@ -291,7 +278,7 @@ test('blockchain queries', function (t) {
       block = createBlock(block)
       headers.push(block)
     }
-    chain.processHeaders(headers, t.end)
+    chain.addHeaders(headers, t.end)
   })
 
   t.test('get block at height', function (t) {
@@ -327,14 +314,14 @@ test('blockchain queries', function (t) {
   t.test('get block at time', function (t) {
     t.plan(16)
 
-    chain.getBlockAtTime(genesis.time + 10, function (err, block) {
+    chain.getBlockAtTime(genesis.time + 9, function (err, block) {
       t.error(err)
       t.ok(block)
       t.equal(block.height, 10)
       t.equal(block.header.hash, headers[9].hash)
     })
 
-    chain.getBlockAtTime(genesis.time + 90, function (err, block) {
+    chain.getBlockAtTime(genesis.time + 89, function (err, block) {
       t.error(err)
       t.ok(block)
       t.equal(block.height, 90)
@@ -356,8 +343,8 @@ test('blockchain queries', function (t) {
     })
   })
 
-  t.test('get block', function (t) {
-    t.plan(14)
+  t.test('get block by hash', function (t) {
+    t.plan(6)
 
     chain.getBlock(u.toHash(headers[50].hash), function (err, block) {
       t.error(err)
@@ -366,23 +353,9 @@ test('blockchain queries', function (t) {
       t.equal(block.header.hash, headers[50].hash)
     })
 
-    chain.getBlock(10, function (err, block) {
-      t.error(err)
-      t.ok(block)
-      t.equal(block.height, 10)
-      t.equal(block.header.hash, headers[9].hash)
-    })
-
-    chain.getBlock(genesis.time + 20, function (err, block) {
-      t.error(err)
-      t.ok(block)
-      t.equal(block.height, 20)
-      t.equal(block.header.hash, headers[19].hash)
-    })
-
-    chain.getBlock(':)', function (err, block) {
+    chain.getBlock(123, function (err, block) {
       t.ok(err)
-      t.equal(err.message, '"at" must be a block hash, height, or timestamp')
+      t.equal(err.message, '"hash" must be a Buffer')
     })
   })
 

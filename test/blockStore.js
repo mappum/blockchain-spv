@@ -1,6 +1,7 @@
 var test = require('tap').test
 var bitcore = require('bitcore-lib')
 var memdown = require('memdown')
+var levelup = require('levelup')
 var u = require('bitcoin-util')
 var BlockStore = require('../lib/blockStore.js')
 
@@ -20,13 +21,15 @@ function createBlock () {
 }
 
 test('open blockstore', function (t) {
-  var bs1 = new BlockStore({ db: memdown }, t.error)
+  var db = levelup('test', { db: memdown })
+  var bs1 = new BlockStore({ db: db }, t.error)
   bs1.on('error', t.error)
   bs1.close(t.end)
 })
 
 test('blockstore put', function (t) {
-  var bs = new BlockStore({ db: memdown })
+  var db = levelup('test2', { db: memdown })
+  var bs = new BlockStore({ db: db })
   var block = createBlock()
 
   t.test('simple put', function (t) {
@@ -57,7 +60,8 @@ test('blockstore put', function (t) {
 })
 
 test('blockstore get', function (t) {
-  var bs = new BlockStore({ db: memdown })
+  var db = levelup('test3', { db: memdown })
+  var bs = new BlockStore({ db: db })
   var block1 = createBlock()
   bs.put(block1, function (err) {
     t.error(err)
