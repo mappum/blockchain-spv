@@ -119,4 +119,55 @@ A convenience method for `chain.getPath(from, chain.getTip(), cb)`.
 ----
 ### Parameters
 
-Parameters specify blockchain rules and constants for different cryptocurrencies and blockchains. Parameters are
+Parameters specify blockchain rules and constants for different cryptocurrencies and blockchains. Parameters should contain the following:
+```js
+{
+  // REQUIRED
+
+  // the data used in the header of the gensis block for this blockchain
+  genesisHeader: {
+    version: Number,
+    prevHash: Buffer,
+    merkleRoot: Buffer,
+    time: Number,
+    bits: Number,
+    nonce: Number
+  },
+
+  // called to check if we should recalculate the difficulty this block
+  // should call the callback with `cb(err, retarget)`
+  // where `retarget` is a boolean
+  shouldRetarget: function (block, callback) { ... },
+
+  // called to calculate the new difficulty
+  // should call the callback with `cb(err, target)`,
+  // where `target` is a Buffer containing the target hash
+  calculateTarget: function (prevBlock, blockchain, callback) { ... },
+
+  // called to compute the hash of the header used to verify mining
+  // should call the callback with `cb(err, hash)`,
+  // where `hash` is a Buffer
+  miningHash: function (header, callback) { ... },
+
+  // OPTIONAL
+
+  // an array of blocks to use to speed up initial blockchain sync,
+  // or as an extra source of data for verifying headers received from peers.
+  // any number of blocks can be provided, and they should be sorted ascending by height
+  checkpoints: [
+    {
+      height: Number,
+      header: {
+        version: Number,
+        prevHash: Buffer,
+        merkleRoot: Buffer,
+        time: Number,
+        bits: Number,
+        nonce: Number
+      }
+    }
+  ]
+}
+```
+
+For an example, see the blockchain parameters in the [`webcoin-bitcoin` repo](https://github.com/mappum/webcoin-bitcoin/blob/master/blockchain.js).
