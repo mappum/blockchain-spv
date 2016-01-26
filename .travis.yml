@@ -1,13 +1,28 @@
 language: node_js
 
 node_js:
-  - 5
-  - 4
-  - 0.12
+- '5'
+
+compiler: clang-3.6
+
+env:
+  global:
+  - CXX=clang-3.6
+
+addons:
+  apt:
+    sources:
+    - llvm-toolchain-precise-3.6
+    - ubuntu-toolchain-r-test
+    packages:
+    - clang-3.6
+    - g++-4.8
+
+notifications:
+  email: false
+
+sudo: false
 
 cache:
   directories:
   - node_modules
-
-notifications:
-  email: false
