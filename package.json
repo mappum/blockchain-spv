@@ -31,5 +31,8 @@
   },
   "browser": {
     "buffertools": "browserify-buffertools"
+  },
+  "optionalDependencies": {
+    "buffertools": "^2.1.3"
   }
 }
