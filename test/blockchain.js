@@ -73,8 +73,7 @@ test('blockchain paths', function (t) {
       time: Math.floor(Date.now() / 1000),
       bits: u.compressTarget(maxTarget),
       nonce: 0
-    },
-    interval: 10
+    }
   })
   var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
   var db = levelup('paths.chain', { db: memdown })
@@ -135,7 +134,25 @@ test('blockchain paths', function (t) {
       block = createBlock(block, 0xffffff)
       headers2.push(block)
     }
-    chain.addHeaders(headers2, t.end)
+    chain.on('reorg', function (e) {
+      t.ok(e, 'got reorg event')
+      t.equal(e.remove.length, 5, 'removed blocks is correct length')
+      t.equal(e.remove[0].height, 10)
+      t.equal(e.remove[0].header.hash, headers[9].hash)
+      t.equal(e.remove[1].height, 9)
+      t.equal(e.remove[1].header.hash, headers[8].hash)
+      t.equal(e.remove[2].height, 8)
+      t.equal(e.remove[2].header.hash, headers[7].hash)
+      t.equal(e.remove[3].height, 7)
+      t.equal(e.remove[3].header.hash, headers[6].hash)
+      t.equal(e.remove[4].height, 6)
+      t.equal(e.remove[4].header.hash, headers[5].hash)
+      t.ok(e.tip)
+      t.equal(e.tip.height, 15)
+      t.equal(e.tip.header.hash, headers2[9].hash)
+      t.end()
+    })
+    chain.addHeaders(headers2, t.error)
   })
 
   t.test('path with fork', function (t) {
@@ -207,7 +224,7 @@ test('blockchain verification', function (t) {
     chain.addHeaders(headers, t.end)
   })
 
-  t.test("error on header that doesn't connect", function (t) {
+  t.test('error on header that doesn\'t connect', function (t) {
     var block = createBlock()
     chain.addHeaders([ block ], function (err) {
       t.ok(err)
@@ -250,13 +267,13 @@ test('blockchain verification', function (t) {
     var block = createBlock(headers[8], 0, 0x1f70ffff)
     chain.addHeaders([ block ], function (err) {
       t.ok(err)
-      t.equal(err.message, 'Bits in block (1f70ffff) is different than expected (207fffff)')
+      t.equal(err.message, 'Bits in block (1f70ffff) is different than expected (201fffff)')
       t.end()
     })
   })
 
   t.test('accept valid difficulty change', function (t) {
-    var block = createBlock(headers[8], 0, 0x207fffff)
+    var block = createBlock(headers[8], 0, 0x201fffff)
     chain.addHeaders([ block ], t.end)
   })
 
