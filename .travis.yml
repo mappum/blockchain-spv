@@ -22,7 +22,3 @@ notifications:
   email: false
 
 sudo: false
-
-cache:
-  directories:
-  - node_modules
