@@ -25,7 +25,7 @@
     "levelup": "^1.3.1",
     "memdown": "^1.1.1",
     "standard": "^6.0.4",
-    "tap": "^5.1.1",
+    "tap": "^5.4.3",
     "tape": "^4.4.0",
     "webcoin-bitcoin": "^0.2.2"
   },
