@@ -48,7 +48,7 @@ Gets a block in the chain with hash `hash`. `hash` must be a Buffer. The callbac
 
 Gets a block in the chain with height `height`. The callback is called with `cb(err, block)`.
 
-Note that this requires the blockchain to be traversed (from the tip or genesis block, whichever is closest), so it runs in `O(N)` time.
+Note that this requires the blockchain to be traversed (from the tip or genesis block, whichever is closest), so it runs in `O(N/2)` time.
 
 ----
 #### `chain.getBlockAtTime(timestamp, callback)`
@@ -124,12 +124,12 @@ Parameters specify blockchain rules and constants for different cryptocurrencies
 {
   // REQUIRED
 
-  // the data used in the header of the gensis block for this blockchain
+  // the data used in the header of the genesis block for this blockchain
   genesisHeader: {
     version: Number,
     prevHash: Buffer,
     merkleRoot: Buffer,
-    time: Number,
+    timestamp: Number,
     bits: Number,
     nonce: Number
   },
@@ -139,10 +139,10 @@ Parameters specify blockchain rules and constants for different cryptocurrencies
   // where `retarget` is a boolean
   shouldRetarget: function (block, callback) { ... },
 
-  // called to calculate the new difficulty
+  // called to calculate the expected difficulty for `block`
   // should call the callback with `cb(err, target)`,
   // where `target` is a Buffer containing the target hash
-  calculateTarget: function (prevBlock, blockchain, callback) { ... },
+  calculateTarget: function (block, blockchain, callback) { ... },
 
   // called to compute the hash of the header used to verify mining
   // should call the callback with `cb(err, hash)`,
@@ -161,7 +161,7 @@ Parameters specify blockchain rules and constants for different cryptocurrencies
         version: Number,
         prevHash: Buffer,
         merkleRoot: Buffer,
-        time: Number,
+        timestamp: Number,
         bits: Number,
         nonce: Number
       }
@@ -170,4 +170,7 @@ Parameters specify blockchain rules and constants for different cryptocurrencies
 }
 ```
 
-For an example, see the blockchain parameters in the [`webcoin-bitcoin` repo](https://github.com/mappum/webcoin-bitcoin/blob/master/blockchain.js).
+For some examples, see these parameter repos:
+- [`webcoin-bitcoin`](https://github.com/mappum/webcoin-bitcoin/blob/master/src/blockchain.js)
+- [`webcoin-bitcoin-testnet`](https://github.com/mappum/webcoin-bitcoin-testnet/blob/master/src/blockchain.js)
+- [`webcoin-zcash-alpha`](https://github.com/mappum/webcoin-zcash-alpha/blob/master/src/blockchain.js)
