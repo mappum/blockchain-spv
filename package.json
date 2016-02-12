@@ -27,7 +27,7 @@
     "standard": "^6.0.4",
     "tap": "^5.1.1",
     "tape": "^4.4.0",
-    "webcoin-bitcoin": "^0.2.2"
+    "webcoin-bitcoin": "^1.0.0"
   },
   "browser": {
     "buffertools": "browserify-buffertools"
