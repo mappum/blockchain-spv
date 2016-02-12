@@ -1,5 +1,5 @@
 var test = require('tap').test
-var bitcore = require('bitcore-lib')
+var bitcoinjs = require('bitcoinjs-lib')
 var memdown = require('memdown')
 var levelup = require('levelup')
 var u = require('bitcoin-util')
@@ -9,15 +9,21 @@ var BlockStore = require('../lib/blockStore.js')
 // TODO: tests for put with { tip: true }
 
 function createBlock () {
-  var header = new bitcore.BlockHeader({
+  var header = blockFromObject({
     version: 1,
     prevHash: u.toHash('0000000000000000000000000000000000000000000000000000000000000000'),
     merkleRoot: u.toHash('4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b'),
-    time: Math.floor(Date.now() / 1000),
+    timestamp: Math.floor(Date.now() / 1000),
     bits: 0x1d00ffff,
     nonce: Math.floor(Math.random() * 0xffffff)
   })
   return { height: Math.floor(Math.random() * 400000), header: header }
+}
+
+function blockFromObject (obj) {
+  var block = new bitcoinjs.Block()
+  for (var k in obj) block[k] = obj[k]
+  return block
 }
 
 test('open blockstore', function (t) {
@@ -65,26 +71,22 @@ test('blockstore get', function (t) {
   var block1 = createBlock()
   bs.put(block1, function (err) {
     t.error(err)
-    t.test('get using `header.hash`', function (t) {
-      bs.get(block1.header.hash, function (err, block2) {
+    t.test('get using `hex string hash`', function (t) {
+      bs.get(block1.header.getId(), function (err, block2) {
         t.error(err)
         // compare blocks
         t.equal(block1.height, block2.height)
-        // NOTE: we have to access `header.hash` before comparing headers,
-        // for the hash to actually be computed and cached
-        t.equal(block1.header.hash, block2.header.hash)
+        t.equal(block1.header.getId(), block2.header.getId())
         t.deepEqual(block1.header, block2.header)
         t.end()
       })
     })
     t.test('get using buffer hash', function (t) {
-      bs.get(block1.header._getHash(), function (err, block2) {
+      bs.get(block1.header.getHash(), function (err, block2) {
         t.error(err)
         // compare blocks
         t.equal(block1.height, block2.height)
-        // NOTE: we have to access `header.hash` before comparing headers,
-        // for the hash to actually be computed and cached
-        t.equal(block1.header.hash, block2.header.hash)
+        t.equal(block1.header.getId(), block2.header.getId())
         t.deepEqual(block1.header, block2.header)
         t.end()
       })
@@ -99,7 +101,7 @@ test('blockstore get', function (t) {
     })
     t.test('get a valid, nonexistent hash', function (t) {
       var block3 = createBlock()
-      bs.get(block3.header.hash, function (err, block2) {
+      bs.get(block3.header.getId(), function (err, block2) {
         t.ok(err)
         t.equal(err.name, 'NotFoundError')
         t.notOk(block2)

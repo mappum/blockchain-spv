@@ -1,10 +1,16 @@
 var test = require('tape')
-var bitcore = require('bitcore-lib')
+var bitcoinjs = require('bitcoinjs-lib')
 var u = require('bitcoin-util')
 var levelup = require('levelup')
 var memdown = require('memdown')
 var params = require('webcoin-bitcoin').blockchain
 var Blockchain = require('../lib/blockchain.js')
+var buffertools
+try {
+  buffertools = require('buffertools')
+} catch (err) {
+  buffertools = require('browserify-buffertools')
+}
 
 function deleteStore (store, cb) {
   memdown.clearGlobalStore()
@@ -18,23 +24,34 @@ function endStore (store, t) {
   })
 }
 
+function blockFromObject (obj) {
+  var block = new bitcoinjs.Block()
+  for (var k in obj) block[k] = obj[k]
+  return block
+}
+
 var maxTarget = new Buffer('7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'hex')
+
+function validProofOfWork (header) {
+  var target = u.expandTarget(header.bits)
+  var hash = buffertools.reverse(header.getHash())
+  return hash.compare(target) !== 1
+}
 
 function createBlock (prev, nonce, bits, validProof) {
   var i = nonce || 0
   validProof = validProof == null ? true : validProof
   var header
   do {
-    header = new bitcore.BlockHeader({
+    header = blockFromObject({
       version: 1,
-      prevHash: prev ? u.toHash(prev.hash) : u.nullHash,
+      prevHash: prev ? prev.getHash() : u.nullHash,
       merkleRoot: u.nullHash,
-      time: prev ? (prev.time + 1) : Math.floor(Date.now() / 1000),
+      timestamp: prev ? (prev.timestamp + 1) : Math.floor(Date.now() / 1000),
       bits: bits || (prev ? prev.bits : u.compressTarget(maxTarget)),
       nonce: i++
     })
-  } while ((validProof && !header.validProofOfWork()) ||
-        (!validProof && header.validProofOfWork()))
+  } while (validProof !== validProofOfWork(header))
   return header
 }
 
@@ -43,7 +60,7 @@ var defaultTestParams = {
     version: 1,
     prevHash: u.nullHash,
     merkleRoot: u.nullHash,
-    time: Math.floor(Date.now() / 1000),
+    timestamp: Math.floor(Date.now() / 1000),
     bits: u.compressTarget(maxTarget),
     nonce: 0
   },
@@ -70,12 +87,12 @@ test('blockchain paths', function (t) {
       version: 1,
       prevHash: u.nullHash,
       merkleRoot: u.nullHash,
-      time: Math.floor(Date.now() / 1000),
+      timestamp: Math.floor(Date.now() / 1000),
       bits: u.compressTarget(maxTarget),
       nonce: 0
     }
   })
-  var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
+  var genesis = blockFromObject(testParams.genesisHeader)
   var db = levelup('paths.chain', { db: memdown })
   var chain = new Blockchain(testParams, db)
 
@@ -100,9 +117,9 @@ test('blockchain paths', function (t) {
       t.notOk(path.fork)
       t.equal(path.add.length, 8)
       t.equal(path.add[0].height, 3)
-      t.equal(path.add[0].header.hash, headers[2].hash)
+      t.equal(path.add[0].header.getId(), headers[2].getId())
       t.equal(path.add[7].height, 10)
-      t.equal(path.add[7].header.hash, to.header.hash)
+      t.equal(path.add[7].header.getId(), to.header.getId())
       t.equal(path.remove.length, 0)
       t.end()
     })
@@ -119,9 +136,9 @@ test('blockchain paths', function (t) {
       t.notOk(path.fork)
       t.equal(path.remove.length, 8)
       t.equal(path.remove[0].height, 10)
-      t.equal(path.remove[0].header.hash, from.header.hash)
+      t.equal(path.remove[0].header.getId(), from.header.getId())
       t.equal(path.remove[7].height, 3)
-      t.equal(path.remove[7].header.hash, headers[2].hash)
+      t.equal(path.remove[7].header.getId(), headers[2].getId())
       t.equal(path.add.length, 0)
       t.end()
     })
@@ -138,18 +155,18 @@ test('blockchain paths', function (t) {
       t.ok(e, 'got reorg event')
       t.equal(e.remove.length, 5, 'removed blocks is correct length')
       t.equal(e.remove[0].height, 10)
-      t.equal(e.remove[0].header.hash, headers[9].hash)
+      t.equal(e.remove[0].header.getId(), headers[9].getId())
       t.equal(e.remove[1].height, 9)
-      t.equal(e.remove[1].header.hash, headers[8].hash)
+      t.equal(e.remove[1].header.getId(), headers[8].getId())
       t.equal(e.remove[2].height, 8)
-      t.equal(e.remove[2].header.hash, headers[7].hash)
+      t.equal(e.remove[2].header.getId(), headers[7].getId())
       t.equal(e.remove[3].height, 7)
-      t.equal(e.remove[3].header.hash, headers[6].hash)
+      t.equal(e.remove[3].header.getId(), headers[6].getId())
       t.equal(e.remove[4].height, 6)
-      t.equal(e.remove[4].header.hash, headers[5].hash)
+      t.equal(e.remove[4].header.getId(), headers[5].getId())
       t.ok(e.tip)
       t.equal(e.tip.height, 15)
-      t.equal(e.tip.header.hash, headers2[9].hash)
+      t.equal(e.tip.header.getId(), headers2[9].getId())
       t.end()
     })
     chain.addHeaders(headers2, t.error)
@@ -163,17 +180,17 @@ test('blockchain paths', function (t) {
       t.ok(path)
       t.ok(path.add)
       t.ok(path.remove)
-      t.equal(path.fork.header.hash, headers[4].hash)
+      t.equal(path.fork.header.getId(), headers[4].getId())
       t.equal(path.remove.length, 5)
       t.equal(path.remove[0].height, 10)
-      t.equal(path.remove[0].header.hash, from.header.hash)
+      t.equal(path.remove[0].header.getId(), from.header.getId())
       t.equal(path.remove[4].height, 6)
-      t.equal(path.remove[4].header.hash, headers[5].hash)
+      t.equal(path.remove[4].header.getId(), headers[5].getId())
       t.equal(path.add.length, 10)
       t.equal(path.add[0].height, 6)
-      t.equal(path.add[0].header.hash, headers2[0].hash)
+      t.equal(path.add[0].header.getId(), headers2[0].getId())
       t.equal(path.add[9].height, 15)
-      t.equal(path.add[9].header.hash, headers2[9].hash)
+      t.equal(path.add[9].header.getId(), headers2[9].getId())
       t.end()
     })
   })
@@ -186,17 +203,17 @@ test('blockchain paths', function (t) {
       t.ok(path)
       t.ok(path.add)
       t.ok(path.remove)
-      t.equal(path.fork.header.hash, headers[4].hash)
+      t.equal(path.fork.header.getId(), headers[4].getId())
       t.equal(path.remove.length, 10)
       t.equal(path.remove[0].height, 15)
-      t.equal(path.remove[0].header.hash, from.header.hash)
+      t.equal(path.remove[0].header.getId(), from.header.getId())
       t.equal(path.remove[9].height, 6)
-      t.equal(path.remove[9].header.hash, headers2[0].hash)
+      t.equal(path.remove[9].header.getId(), headers2[0].getId())
       t.equal(path.add.length, 5)
       t.equal(path.add[0].height, 6)
-      t.equal(path.add[0].header.hash, headers[5].hash)
+      t.equal(path.add[0].header.getId(), headers[5].getId())
       t.equal(path.add[4].height, 10)
-      t.equal(path.add[4].header.hash, headers[9].hash)
+      t.equal(path.add[4].header.getId(), headers[9].getId())
       t.end()
     })
   })
@@ -214,7 +231,7 @@ test('blockchain verification', function (t) {
   var chain = new Blockchain(testParams, db)
 
   var headers = []
-  var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
+  var genesis = blockFromObject(testParams.genesisHeader)
   t.test('headers add to blockchain', function (t) {
     var block = genesis
     for (var i = 0; i < 9; i++) {
@@ -258,7 +275,7 @@ test('blockchain verification', function (t) {
     var block = createBlock(headers[8], 0, genesis.bits, false)
     chain.addHeaders([ block ], function (err) {
       t.ok(err)
-      t.equal(err.message, 'Mining hash is above target')
+      t.ok(err.message.indexOf('Mining hash is above target') === 0)
       t.end()
     })
   })
@@ -267,7 +284,7 @@ test('blockchain verification', function (t) {
     var block = createBlock(headers[8], 0, 0x1f70ffff)
     chain.addHeaders([ block ], function (err) {
       t.ok(err)
-      t.equal(err.message, 'Bits in block (1f70ffff) is different than expected (201fffff)')
+      t.equal(err.message, 'Bits in block (1f70ffff) different than expected (201fffff)')
       t.end()
     })
   })
@@ -284,7 +301,7 @@ test('blockchain verification', function (t) {
 
 test('blockchain queries', function (t) {
   var testParams = createTestParams()
-  var genesis = new bitcore.BlockHeader(testParams.genesisHeader)
+  var genesis = blockFromObject(testParams.genesisHeader)
   var db = levelup('queries.chain', { db: memdown })
   var chain = new Blockchain(testParams, db)
 
@@ -305,14 +322,14 @@ test('blockchain queries', function (t) {
       t.error(err)
       t.ok(block)
       t.equal(block.height, 10)
-      t.equal(block.header.hash, headers[9].hash)
+      t.equal(block.header.getId(), headers[9].getId())
     })
 
     chain.getBlockAtHeight(90, function (err, block) {
       t.error(err)
       t.ok(block)
       t.equal(block.height, 90)
-      t.equal(block.header.hash, headers[89].hash)
+      t.equal(block.header.getId(), headers[89].getId())
     })
 
     chain.getBlockAtHeight(200, function (err, block) {
@@ -331,43 +348,43 @@ test('blockchain queries', function (t) {
   t.test('get block at time', function (t) {
     t.plan(16)
 
-    chain.getBlockAtTime(genesis.time + 9, function (err, block) {
+    chain.getBlockAtTime(genesis.timestamp + 9, function (err, block) {
       t.error(err)
       t.ok(block)
       t.equal(block.height, 10)
-      t.equal(block.header.hash, headers[9].hash)
+      t.equal(block.header.getId(), headers[9].getId())
     })
 
-    chain.getBlockAtTime(genesis.time + 89, function (err, block) {
+    chain.getBlockAtTime(genesis.timestamp + 89, function (err, block) {
       t.error(err)
       t.ok(block)
       t.equal(block.height, 90)
-      t.equal(block.header.hash, headers[89].hash)
+      t.equal(block.header.getId(), headers[89].getId())
     })
 
-    chain.getBlockAtTime(genesis.time + 200, function (err, block) {
+    chain.getBlockAtTime(genesis.timestamp + 200, function (err, block) {
       t.error(err)
       t.ok(block)
       t.equal(block.height, 100)
-      t.equal(block.header.hash, headers[99].hash)
+      t.equal(block.header.getId(), headers[99].getId())
     })
 
-    chain.getBlockAtTime(genesis.time - 10, function (err, block) {
+    chain.getBlockAtTime(genesis.timestamp - 10, function (err, block) {
       t.error(err)
       t.ok(block)
       t.equal(block.height, 0)
-      t.equal(block.header.hash, genesis.hash)
+      t.equal(block.header.getId(), genesis.getId())
     })
   })
 
   t.test('get block by hash', function (t) {
     t.plan(6)
 
-    chain.getBlock(u.toHash(headers[50].hash), function (err, block) {
+    chain.getBlock(headers[50].getHash(), function (err, block) {
       t.error(err)
       t.ok(block)
       t.equal(block.height, 51)
-      t.equal(block.header.hash, headers[50].hash)
+      t.equal(block.header.getId(), headers[50].getId())
     })
 
     chain.getBlock(123, function (err, block) {
