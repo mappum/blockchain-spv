@@ -74,11 +74,9 @@ function createTestParams (opts) {
 }
 
 test('create blockchain instance', function (t) {
-  t.doesNotThrow(function () {
-    var db = levelup('chain', { db: memdown })
-    var chain = new Blockchain(params, db)
-    endStore(chain.store, t)
-  })
+  var db = levelup('chain', { db: memdown })
+  var chain = new Blockchain(params, db)
+  chain.once('ready', function () { endStore(chain.store, t) })
 })
 
 test('blockchain paths', function (t) {
@@ -94,7 +92,12 @@ test('blockchain paths', function (t) {
   })
   var genesis = blockFromObject(testParams.genesisHeader)
   var db = levelup('paths.chain', { db: memdown })
-  var chain = new Blockchain(testParams, db)
+  var chain
+
+  t.test('setup chain', function (t) {
+    chain = new Blockchain(testParams, db)
+    chain.once('ready', t.end)
+  })
 
   var headers = []
   t.test('headers add to blockchain', function (t) {
