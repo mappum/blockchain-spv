@@ -27,7 +27,7 @@
     "memdown": "^1.1.1",
     "standard": "^6.0.4",
     "tap": "^5.1.1",
-    "tape": "^4.4.0",
+    "tape": "^4.5.1",
     "webcoin-bitcoin": "^1.0.1"
   },
   "browser": {
