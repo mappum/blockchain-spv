@@ -39,6 +39,11 @@ Creates an SPV `Blockchain` which stores and verifies block headers.
 Adds block headers to the chain. `headers` should be an array of contiguous, ascending block headers. The headers will be verified (checked to make sure the expected amount of work was done, the difficulty was correct, etc.). The callback will be called with `cb(err, header)` where `header` is an invalid header if there was a validation error.
 
 ----
+#### `chain.createWriteStream()`
+
+Returns a writable stream that takes in arrays of block headers and adds them to the chain. This is essentially just a stream wrapper for `chain.addHeaders()`, making it easier to get headers from a `HeaderStream` (from the [`bitcoin-net`](https://github.com/mappum/bitcoin-net) module).
+
+----
 #### `chain.getBlock(hash, callback)`
 
 Gets a block in the chain with hash `hash`. `hash` must be a Buffer. The callback is called with `cb(err, block)`.
