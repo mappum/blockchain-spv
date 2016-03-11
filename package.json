@@ -4,7 +4,9 @@
   "description": "Stores blockchain headers and verifies transactions with SPV",
   "main": "index.js",
   "scripts": {
-    "test": "standard && tap test/*.js --cov"
+    "lint": "standard",
+    "test": "npm run lint && npm run unit",
+    "unit": "tap test/*.js --cov"
   },
   "keywords": [
     "bitcoin",
