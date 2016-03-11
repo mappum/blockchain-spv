@@ -3,14 +3,9 @@ var bitcoinjs = require('bitcoinjs-lib')
 var u = require('bitcoin-util')
 var levelup = require('levelup')
 var memdown = require('memdown')
+var bufferReverse = require('buffer-reverse')
 var params = require('webcoin-bitcoin').blockchain
 var Blockchain = require('../lib/blockchain.js')
-var buffertools
-try {
-  buffertools = require('buffertools')
-} catch (err) {
-  buffertools = require('browserify-buffertools')
-}
 
 function deleteStore (store, cb) {
   memdown.clearGlobalStore()
@@ -34,7 +29,7 @@ var maxTarget = new Buffer('7fffffffffffffffffffffffffffffffffffffffffffffffffff
 
 function validProofOfWork (header) {
   var target = u.expandTarget(header.bits)
-  var hash = buffertools.reverse(header.getHash())
+  var hash = bufferReverse(header.getHash())
   return hash.compare(target) !== 1
 }
 
