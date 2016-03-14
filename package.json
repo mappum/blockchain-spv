@@ -32,5 +32,16 @@
     "tap": "^5.1.1",
     "tape": "^4.4.0",
     "webcoin-bitcoin": "^2.0.0"
-  }
+  },
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mappum/blockchain-spv.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mappum/blockchain-spv/issues"
+  },
+  "homepage": "https://github.com/mappum/blockchain-spv#readme"
 }
