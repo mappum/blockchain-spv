@@ -91,10 +91,18 @@ test('blockstore get', function (t) {
         t.end()
       })
     })
-    t.test('get an invalid hash', function (t) {
+    t.test('get with an invalid length string key', function (t) {
       bs.get('1234', function (err, block2) {
         t.ok(err)
-        t.equal(err.message, 'Invalid hash format')
+        t.equal(err.message, 'Invalid hash length')
+        t.notOk(block2)
+        t.end()
+      })
+    })
+    t.test('get with an invalid type key', function (t) {
+      bs.get(1234, function (err, block2) {
+        t.ok(err)
+        t.equal(err.message, 'Invalid hash')
         t.notOk(block2)
         t.end()
       })

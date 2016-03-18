@@ -3,7 +3,7 @@ var bitcoinjs = require('bitcoinjs-lib')
 var u = require('bitcoin-util')
 var levelup = require('levelup')
 var memdown = require('memdown')
-var bufferReverse = require('buffer-reverse')
+var reverse = require('buffer-reverse')
 var params = require('webcoin-bitcoin').blockchain
 var Blockchain = require('../lib/blockchain.js')
 
@@ -29,7 +29,7 @@ var maxTarget = new Buffer('7fffffffffffffffffffffffffffffffffffffffffffffffffff
 
 function validProofOfWork (header) {
   var target = u.expandTarget(header.bits)
-  var hash = bufferReverse(header.getHash())
+  var hash = reverse(header.getHash())
   return hash.compare(target) !== 1
 }
 
