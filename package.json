@@ -1,6 +1,6 @@
 {
   "name": "blockchain-spv",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Stores blockchain headers and verifies transactions with SPV",
   "main": "index.js",
   "scripts": {
