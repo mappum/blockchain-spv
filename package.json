@@ -4,7 +4,7 @@
   "description": "Stores blockchain headers and verifies transactions with SPV",
   "main": "index.js",
   "scripts": {
-    "lint": "standard",
+    "lint": "standard src test",
     "test": "npm run lint && npm run unit",
     "unit": "tap test/*.js --cov",
     "build": "rm -rf lib && babel --presets es2015 src -d lib",
