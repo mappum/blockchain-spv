@@ -40,7 +40,6 @@ BlockStore.prototype.put = function (block, opts, cb) {
   if (block.header == null) return cb(new Error('Must specify header'))
   if (opts.tip) opts.best = true
 
-  var self = this
   var blockEncoded = storedBlock.encode({
     height: block.height,
     header: block.header.toBuffer(),
@@ -69,10 +68,10 @@ BlockStore.prototype.put = function (block, opts, cb) {
       valueEncoding: this.valueEncoding
     })
   }
-  this.db.batch(batch, function (err) {
+  this.db.batch(batch, (err) => {
     if (err) return cb(err)
     if (opts.tip) {
-      return self._setTip({ height: block.height, hash: block.header.getId() }, cb)
+      return this._setTip({ height: block.height, hash: block.header.getId() }, cb)
     }
     cb(null)
   })
@@ -88,7 +87,7 @@ BlockStore.prototype.get = function (hash, cb) {
   this.db.get(key, {
     keyEncoding: this.keyEncoding,
     valueEncoding: this.valueEncoding
-  }, function (err, data) {
+  }, (err, data) => {
     if (err) return cb(err)
     var block = storedBlock.decode(data)
     block.header = Block.fromBuffer(block.header)
@@ -111,9 +110,9 @@ BlockStore.prototype.getTip = function (cb) {
   this.db.get('tip', {
     keyEncoding: 'utf8',
     valueEncoding: 'json'
-  }, function (err, tip) {
+  }, (err, tip) => {
     if (err) return cb(err)
-    self.get(tip.hash, function (err, block) {
+    self.get(tip.hash, (err, block) => {
       if (err) return cb(err)
       tip.hash = u.toHash(tip.hash)
       tip.header = block.header
