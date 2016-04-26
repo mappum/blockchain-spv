@@ -28,7 +28,8 @@
     "flush-write-stream": "^1.0.0",
     "inherits": "^2.0.1",
     "setimmediate": "^1.0.4",
-    "varstruct": "^5.1.0"
+    "varstruct": "^5.1.0",
+    "varuint-bitcoin": "^1.0.4"
   },
   "devDependencies": {
     "babel-cli": "^6.6.5",

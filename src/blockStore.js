@@ -1,13 +1,14 @@
 var EventEmitter = require('events').EventEmitter
 var u = require('bitcoin-util')
-var Block = require('bitcoinjs-lib').Block
+var DefaultBlock = require('bitcoinjs-lib').Block
 var inherits = require('inherits')
 var reverse = require('buffer-reverse')
 var struct = require('varstruct')
+var varint = require('varuint-bitcoin')
 
 var storedBlock = struct([
   { name: 'height', type: struct.UInt32LE },
-  { name: 'header', type: struct.Buffer(80) },
+  { name: 'header', type: struct.VarBuffer(varint) },
   { name: 'next', type: struct.Buffer(32) }
 ])
 
@@ -25,6 +26,7 @@ var BlockStore = module.exports = function (opts) {
     throw new Error('Must specify "db" option')
   }
   this.db = opts.db
+  this.Block = opts.Block || DefaultBlock
 
   this.keyEncoding = 'utf8'
   this.valueEncoding = 'binary'
@@ -90,7 +92,7 @@ BlockStore.prototype.get = function (hash, cb) {
   }, (err, data) => {
     if (err) return cb(err)
     var block = storedBlock.decode(data)
-    block.header = Block.fromBuffer(block.header)
+    block.header = this.Block.fromBuffer(block.header)
     cb(null, block)
   })
 }

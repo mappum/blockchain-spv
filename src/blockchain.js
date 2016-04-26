@@ -1,7 +1,7 @@
 var EventEmitter = require('events').EventEmitter
 var async = require('async')
 var u = require('bitcoin-util')
-var Block = require('bitcoinjs-lib').Block
+var DefaultBlock = require('bitcoinjs-lib').Block
 var to = require('flush-write-stream').obj
 var inherits = require('inherits')
 var BlockStore = require('./blockStore.js')
@@ -20,10 +20,6 @@ function validParameters (params) {
     typeof params.miningHash === 'function'
 }
 
-function blockFromObject (obj) {
-  return Object.assign(new Block(), obj)
-}
-
 var Blockchain = module.exports = function (params, db, opts) {
   if (!params || !validParameters(params)) {
     throw new Error('Invalid network parameters')
@@ -31,6 +27,12 @@ var Blockchain = module.exports = function (params, db, opts) {
   if (!db) throw new Error('Must specify db')
   this.params = params
   opts = opts || {}
+
+  var Block = params.Block || DefaultBlock
+
+  function blockFromObject (obj) {
+    return Object.assign(new Block(), obj)
+  }
 
   var genesisHeader = blockFromObject(params.genesisHeader)
   this.genesis = this.tip = {
@@ -52,7 +54,7 @@ var Blockchain = module.exports = function (params, db, opts) {
   this.initialized = false
   this.closed = false
 
-  this.store = new BlockStore({ db: db })
+  this.store = new BlockStore({ db: db, Block: Block })
   this._initialize()
 }
 inherits(Blockchain, EventEmitter)
