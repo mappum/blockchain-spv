@@ -2,6 +2,7 @@ var EventEmitter = require('events').EventEmitter
 var async = require('async')
 var u = require('bitcoin-util')
 var DefaultBlock = require('bitcoinjs-lib').Block
+var from = require('from2').obj
 var to = require('flush-write-stream').obj
 var inherits = require('inherits')
 var BlockStore = require('./blockStore.js')
@@ -53,6 +54,7 @@ var Blockchain = module.exports = function (params, db, opts) {
 
   this.initialized = false
   this.closed = false
+  this.adding = false
 
   this.store = new BlockStore({ db: db, Block: Block })
   this._initialize()
@@ -261,38 +263,68 @@ Blockchain.prototype.createReadStream = function (opts) {
   return new HeaderStream(this, opts)
 }
 
+Blockchain.prototype.createLocatorStream = function (opts) {
+  var pushedFirst = false
+  var getting = false
+  var pushLocator = (cb) => {
+    this.getLocator((err, locator) => {
+      if (err) return cb(err)
+      getting = false
+      cb(null, locator)
+    })
+  }
+  return from((size, next) => {
+    if (getting) return
+    getting = true
+    if (!pushedFirst) {
+      pushedFirst = true
+      return pushLocator(next)
+    }
+    this.once('consumed', () => pushLocator(next))
+  })
+}
+
 Blockchain.prototype.addHeaders = function (headers, cb) {
+  if (this.adding) return cb(new Error('Already adding headers'))
+
   var previousTip = this.tip
+  this.adding = true
+  var done = (err, last) => {
+    this.emit('consumed')
+    if (err) this.emit('headerError', err)
+    this.adding = false
+    cb(err, last)
+  }
 
   // TODO: store all orphan tips
   this.getBlock(headers[0].prevHash, (err, start) => {
-    if (err && err.name === 'NotFoundError') return cb(new Error('Block does not connect to chain'))
-    if (err) return cb(err)
+    if (err && err.name === 'NotFoundError') return done(new Error('Block does not connect to chain'))
+    if (err) return done(err)
     start.hash = start.header.getHash()
 
     async.reduce(headers, start, this._addHeader.bind(this), (err, last) => {
-      if (err) return cb(err, last)
+      if (err) return done(err, last)
 
       // TODO: add even if it doesn't pass the current tip
       // (makes us store orphan forks, and lets us handle reorgs > 2000 blocks)
       if (last.height > previousTip.height) {
         this.getPath(previousTip, last, (err, path) => {
-          if (err) return cb(err, last)
+          if (err) return done(err, last)
           if (path.remove.length > 0) {
             var first = { height: start.height + 1, header: headers[0] }
             this.store.put(first, { best: true, prev: start }, (err) => {
-              if (err) return cb(err)
+              if (err) return done(err)
               this.emit('reorg', { remove: path.remove, tip: last })
-              cb(null, last)
+              done(null, last)
             })
             return
           }
-          cb(null, last)
+          done(null, last)
         })
         return
       }
 
-      cb(null, last)
+      done(null, last)
     })
   })
 }
