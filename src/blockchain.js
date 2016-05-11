@@ -264,22 +264,21 @@ Blockchain.prototype.createReadStream = function (opts) {
 }
 
 Blockchain.prototype.createLocatorStream = function (opts) {
-  var pushedFirst = false
+  var changed = true
   var getting = false
   var pushLocator = (cb) => {
+    changed = false
     this.getLocator((err, locator) => {
       if (err) return cb(err)
       getting = false
       cb(null, locator)
     })
   }
+  this.on('consumed', () => { changed = true })
   return from((size, next) => {
     if (getting) return
     getting = true
-    if (!pushedFirst) {
-      pushedFirst = true
-      return pushLocator(next)
-    }
+    if (changed) return pushLocator(next)
     this.once('consumed', () => pushLocator(next))
   })
 }
