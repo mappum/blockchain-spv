@@ -13,9 +13,11 @@ function HeaderStream (chain, opts) {
   this.cursor = opts.from || chain.genesis.hash
   this.stopHash = opts.stopHash
   this.stopHeight = opts.stopHeight
+  this.inclusive = opts.inclusive
 
   this.paused = false
   this.ended = false
+  this.skipped = false
   this.lastHash = u.nullHash
 }
 inherits(HeaderStream, Readable)
@@ -30,16 +32,14 @@ HeaderStream.prototype._next = function () {
 
   if (this.cursor.equals(u.nullHash)) {
     // we reached end of chain, wait for new block
-    var onBlock = (block) => {
-      this.chain.removeListener('block', onBlock)
+    this.chain.once('block', (block) => {
       this.chain.getBlock(this.lastHash, (err, block) => {
         if (err) return this.emit('error', err)
         this.paused = false
         this.cursor = block.next
         setImmediate(this._next.bind(this))
       })
-    }
-    this.chain.on('block', onBlock)
+    })
     return
   }
 
@@ -49,7 +49,12 @@ HeaderStream.prototype._next = function () {
     this.cursor = block.next
     this.lastHash = block.header.getHash()
     this.paused = false
-    var res = this.push(block)
+    var res = true
+    if (this.inclusive != null && !this.inclusive && !this.skipped) {
+      this.skipped = true
+    } else {
+      res = this.push(block)
+    }
     if ((this.stopHash && this.stopHash.equals(this.lastHash)) ||
     (this.stopHeight && this.stopHeight === block.height)) {
       return this.push(null)
