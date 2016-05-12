@@ -349,12 +349,12 @@ Blockchain.prototype._addHeader = function (prev, header, cb) {
     var tip = height > this.tip.height
     this._put({ header: header, height: height }, { tip: tip, prev: prev }, (err) => {
       if (err) return cb(err)
-
+      this.emit('block', block)
+      this.emit(`block:${block.hash.toString('base64')}`, block)
       if (tip) {
         this.tip = block
-        this.emit('block', block)
+        this.emit('tip', block)
       }
-
       cb(null, block)
     })
   }
