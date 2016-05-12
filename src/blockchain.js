@@ -291,6 +291,7 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
   var done = (err, last) => {
     this.emit('consumed')
     if (err) this.emit('headerError', err)
+    else this.emit('blocks', headers)
     this.adding = false
     cb(err, last)
   }
@@ -313,7 +314,7 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
             var first = { height: start.height + 1, header: headers[0] }
             this.store.put(first, { best: true, prev: start }, (err) => {
               if (err) return done(err)
-              this.emit('reorg', { remove: path.remove, tip: last })
+              this.emit('reorg', { path, tip: last })
               done(null, last)
             })
             return
