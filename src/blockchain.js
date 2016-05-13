@@ -291,7 +291,7 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
   var done = (err, last) => {
     this.emit('consumed')
     if (err) this.emit('headerError', err)
-    else this.emit('blocks', headers)
+    else this.emit('headers', headers)
     this.adding = false
     cb(err, last)
   }

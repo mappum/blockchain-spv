@@ -120,8 +120,8 @@ test('blockchain paths', function (t) {
       t.equal(block.header, headers[tipIndex++])
     })
 
-    chain.once('blocks', (blocks) => {
-      t.equal(blocks, headers)
+    chain.once('headers', (headers2) => {
+      t.equal(headers2, headers)
     })
     chain.addHeaders(headers, (err) => {
       t.pass('addHeaders cb called')
