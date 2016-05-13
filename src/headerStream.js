@@ -40,14 +40,13 @@ HeaderStream.prototype._next = function () {
           // reorg handling (remove blocks to get to new fork)
         for (let block of path.remove) {
           block.operation = 'remove'
-          this.push(block)
+          this._push(block)
         }
         for (let block of path.add) {
           block.operation = 'add'
-          this.push(block)
+          this._push(block)
         }
         this.paused = false
-        this.cursor = block.next
         setImmediate(this._next.bind(this))
       })
     })
@@ -71,23 +70,27 @@ HeaderStream.prototype._next = function () {
       }
       return
     }
-    this.cursor = block.next
-    this.lastHash = block.header.getHash()
-    this.lastBlock = block
+
     this.paused = false
-    var res = true
-    if (this.first) {
-      this.first = false
-    } else {
-      block.operation = 'add'
-      res = this.push(block)
-    }
+    block.operation = 'add'
+    var res = this._push(block)
     if ((this.stopHash && this.stopHash.equals(this.lastHash)) ||
     (this.stopHeight && this.stopHeight === block.height)) {
       return this.push(null)
     }
     if (res) this._next()
   })
+}
+
+HeaderStream.prototype._push = function (block) {
+  this.cursor = block.next
+  this.lastHash = block.header.getHash()
+  this.lastBlock = block
+  if (this.first) {
+    this.first = false
+    return true
+  }
+  return this.push(block)
 }
 
 HeaderStream.prototype.end = function () {
