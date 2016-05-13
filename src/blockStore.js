@@ -5,6 +5,7 @@ var inherits = require('inherits')
 var reverse = require('buffer-reverse')
 var struct = require('varstruct')
 var varint = require('varuint-bitcoin')
+var u = require('bitcoin-util')
 
 var storedBlock = struct([
   { name: 'height', type: struct.UInt32LE },
@@ -93,6 +94,7 @@ BlockStore.prototype.get = function (hash, cb) {
     if (err) return cb(err)
     var block = storedBlock.decode(data)
     block.header = this.Block.fromBuffer(block.header)
+    if (block.next.equals(u.nullHash)) block.next = null
     cb(null, block)
   })
 }

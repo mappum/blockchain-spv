@@ -33,7 +33,7 @@ HeaderStream.prototype._next = function () {
   this.paused = true
 
   // we reached end of chain, wait for new tip
-  if (this.cursor.equals(u.nullHash)) {
+  if (!this.cursor) {
     this.chain.once('tip', (block) => {
       this.chain.getPath(this.lastBlock, block, (err, path) => {
         if (err) return this.emit('error', err)
