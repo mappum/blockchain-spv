@@ -1,3 +1,5 @@
+'use strict'
+
 var Readable = require('stream').Readable
 var inherits = require('inherits')
 var u = require('bitcoin-util')
@@ -10,15 +12,16 @@ function HeaderStream (chain, opts) {
 
   opts = opts || {}
   this.chain = chain
-  this.cursor = opts.from || chain.genesis.hash
+  this.from = this.cursor = opts.from || chain.genesis.hash
   this.stopHash = opts.stopHash
   this.stopHeight = opts.stopHeight
-  this.inclusive = opts.inclusive
+  this.inclusive = opts.inclusive != null ? opts.inclusive : false
 
   this.paused = false
   this.ended = false
   this.skipped = false
   this.lastHash = u.nullHash
+  this.lastBlock = null
 }
 inherits(HeaderStream, Readable)
 
@@ -30,11 +33,20 @@ HeaderStream.prototype._next = function () {
   if (this.paused || this.ended) return
   this.paused = true
 
+  // we reached end of chain, wait for new tip
   if (this.cursor.equals(u.nullHash)) {
-    // we reached end of chain, wait for new block
-    this.chain.once('block', (block) => {
-      this.chain.getBlock(this.lastHash, (err, block) => {
+    this.chain.once('tip', (block) => {
+      this.chain.getPath(this.lastBlock, block, (err, path) => {
         if (err) return this.emit('error', err)
+          // reorg handling (remove blocks to get to new fork)
+        for (let block of path.remove) {
+          block.operation = 'remove'
+          this.push(block)
+        }
+        for (let block of path.add) {
+          block.operation = 'add'
+          this.push(block)
+        }
         this.paused = false
         this.cursor = block.next
         setImmediate(this._next.bind(this))
@@ -43,16 +55,32 @@ HeaderStream.prototype._next = function () {
     return
   }
 
+  // stream headers that are already stored
   this.chain.getBlock(this.cursor, (err, block) => {
     if (this.ended) return
     if (err) return this.emit('error', err)
+    if (!block) {
+      // if current "next" block is not found
+      if (this.cursor.equals(this.start)) {
+        // if this is the `from` block, wait until we see the block
+        this.chain.once(`header:${this.cursor.toString('base64')}`,
+          this._next.bind(this))
+      } else {
+        this.emit('error', new Error('HeaderStream error: chain should ' +
+          `continue to block "${this.cursor.toString('hex')}", but it was ` +
+          'not found in the BlockStore'))
+        return
+      }
+    }
     this.cursor = block.next
     this.lastHash = block.header.getHash()
+    this.lastBlock = block
     this.paused = false
     var res = true
-    if (this.inclusive != null && !this.inclusive && !this.skipped) {
+    if (!this.inclusive && !this.skipped) {
       this.skipped = true
     } else {
+      block.operation = 'add'
       res = this.push(block)
     }
     if ((this.stopHash && this.stopHash.equals(this.lastHash)) ||
