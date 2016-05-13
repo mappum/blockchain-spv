@@ -19,6 +19,9 @@ function HeaderStream (chain, opts) {
   this.paused = false
   this.ended = false
   this.first = true
+  if (!opts.from || opts.from.equals(u.nullHash)) {
+    this.first = false
+  }
   this.lastHash = u.nullHash
   this.lastBlock = null
 }
