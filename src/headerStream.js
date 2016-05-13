@@ -12,14 +12,13 @@ function HeaderStream (chain, opts) {
 
   opts = opts || {}
   this.chain = chain
-  this.from = this.cursor = opts.from || chain.genesis.hash
+  this.start = this.cursor = opts.from || chain.genesis.hash
   this.stopHash = opts.stopHash
   this.stopHeight = opts.stopHeight
-  this.inclusive = opts.inclusive != null ? opts.inclusive : false
 
   this.paused = false
   this.ended = false
-  this.skipped = false
+  this.first = true
   this.lastHash = u.nullHash
   this.lastBlock = null
 }
@@ -77,8 +76,8 @@ HeaderStream.prototype._next = function () {
     this.lastBlock = block
     this.paused = false
     var res = true
-    if (!this.inclusive && !this.skipped) {
-      this.skipped = true
+    if (this.first) {
+      this.first = false
     } else {
       block.operation = 'add'
       res = this.push(block)
