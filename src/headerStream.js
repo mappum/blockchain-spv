@@ -69,8 +69,8 @@ HeaderStream.prototype._next = function () {
         this.emit('error', new Error('HeaderStream error: chain should ' +
           `continue to block "${this.cursor.toString('hex')}", but it was ` +
           'not found in the BlockStore'))
-        return
       }
+      return
     }
     this.cursor = block.next
     this.lastHash = block.header.getHash()
