@@ -3,12 +3,6 @@ language: node_js
 node_js:
   - "4"
   - "5"
-matrix:
-  include:
-    - node_js: "4"
-      env: TEST_SUITE=lint
-env:
-  - TEST_SUITE=unit
+  - "6"
 notifications:
   email: false
-script: npm run-script $TEST_SUITE
