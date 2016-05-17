@@ -1,4 +1,4 @@
-var test = require('tap').test
+var test = require('tape')
 var bitcoinjs = require('bitcoinjs-lib')
 var memdown = require('memdown')
 var levelup = require('levelup')
@@ -46,20 +46,36 @@ test('blockstore put', function (t) {
   })
   t.test('put invalid blocks', function (t) {
     t.test('empty', function (t) {
-      bs.put({}, t.end)
+      bs.put({}, function (err) {
+        t.ok(err, 'got error')
+        t.same(err.message, 'Must specify height', 'correct error message')
+        t.end()
+      })
     })
     t.test('no header', function (t) {
-      bs.put({ height: 123 }, t.end)
+      bs.put({ height: 123 }, function (err) {
+        t.ok(err, 'got error')
+        t.same(err.message, 'Must specify header', 'correct error message')
+        t.end()
+      })
     })
     t.test('no height', function (t) {
-      bs.put({ header: block.header }, t.end)
+      bs.put({ header: block.header }, function (err) {
+        t.ok(err, 'got error')
+        t.same(err.message, 'Must specify height', 'correct error message')
+        t.end()
+      })
     })
     t.end()
   })
   t.test('put after close', function (t) {
     bs.close(function (err) {
       t.error(err)
-      bs.put(block, t.end)
+      bs.put(block, function (err) {
+        t.ok(err, 'got error')
+        t.same(err.message, 'Database is not open', 'correct error message')
+        t.end()
+      })
     })
   })
   t.end()
