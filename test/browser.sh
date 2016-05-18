@@ -1,12 +1,12 @@
 #!/bin/sh
 
-npm run build
 if [ $BROWSER ]; then
   zuul \
     --browser-name $BROWSER \
     --browser-version latest \
-    -- test/*.js
+    --ui tape \
+    -- test/*.js \
+    || exit 1
 else
-  zuul --local -- test/*.js;
+  zuul --local --ui tape -- test/*.js || exit 1
 fi
-npm run source

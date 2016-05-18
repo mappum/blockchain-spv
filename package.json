@@ -4,9 +4,8 @@
   "description": "Stores blockchain headers and verifies transactions with SPV",
   "main": "index.js",
   "scripts": {
-    "test": "if [ $BROWSER ]; then npm run test-browser; else npm run test-node; fi",
-    "test-node": "standard src test && nyc tape test/*.js | faucet && nyc report",
-    "test-browser": "test/browser.sh",
+    "test": "standard src test && nyc tape test/*.js | faucet && nyc report",
+    "test-browser": "npm run build && test/browser.sh; npm run source",
     "build": "rm -rf lib && babel --presets es2015 src -d lib",
     "source": "rm -rf lib && ln -s src lib",
     "prepublish": "npm run build",

@@ -15,4 +15,9 @@ echo node version: `node --version`
 echo npm version: `npm --version`
 npm install
 echo Install completed
-npm test
+
+if [ $BROWSER ]; then
+  npm run test-browser
+else
+  npm test
+fi
