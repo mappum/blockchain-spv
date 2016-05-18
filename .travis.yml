@@ -1,6 +1,7 @@
+sudo: false
 language: node_js
 install: ./travis-install.sh
-script: npm test
+script: ./travis-script.sh
 env:
   matrix:
   - NODE=6
