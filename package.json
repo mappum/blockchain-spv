@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "standard src test && nyc tape test/*.js | faucet && nyc report",
+    "test-browser": "npm run build && zuul --local -- test/*.js; npm run source",
     "build": "rm -rf lib && babel --presets es2015 src -d lib",
     "source": "rm -rf lib && ln -s src lib",
     "prepublish": "npm run build",
@@ -39,7 +40,8 @@
     "nyc": "^6.4.4",
     "standard": "^7.0.0",
     "tape": "^4.4.0",
-    "webcoin-bitcoin": "^2.0.0"
+    "webcoin-bitcoin": "^2.0.0",
+    "zuul": "^3.10.1"
   },
   "directories": {
     "test": "test"
