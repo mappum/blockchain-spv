@@ -102,28 +102,28 @@ test('blockchain paths', function (t) {
       block = createBlock(block)
       headers.push(block);
       (function (block) {
-        chain.on('block:' + block.getHash().toString('base64'), (block2) => {
+        chain.on('block:' + block.getHash().toString('base64'), function (block2) {
           t.equal(block, block2.header)
         })
       })(block)
     }
 
     var blockIndex = 0
-    chain.on('block', (block) => {
+    chain.on('block', function (block) {
       t.equal(block.height, blockIndex + 1)
       t.equal(block.header, headers[blockIndex++])
     })
 
     var tipIndex = 0
-    chain.on('tip', (block) => {
+    chain.on('tip', function (block) {
       t.equal(block.height, tipIndex + 1)
       t.equal(block.header, headers[tipIndex++])
     })
 
-    chain.once('headers', (headers2) => {
+    chain.once('headers', function (headers2) {
       t.equal(headers2, headers)
     })
-    chain.addHeaders(headers, (err) => {
+    chain.addHeaders(headers, function (err) {
       t.pass('addHeaders cb called')
       t.error(err)
     })
