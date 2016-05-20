@@ -42,11 +42,11 @@ HeaderStream.prototype._next = function () {
         if (err) return this.emit('error', err)
           // reorg handling (remove blocks to get to new fork)
         for (let block of path.remove) {
-          block.operation = 'remove'
+          block.add = false
           this._push(block)
         }
         for (let block of path.add) {
-          block.operation = 'add'
+          block.add = true
           this._push(block)
         }
         this.paused = false
@@ -75,7 +75,7 @@ HeaderStream.prototype._next = function () {
     }
 
     this.paused = false
-    block.operation = 'add'
+    block.add = true
     var res = this._push(block)
     if ((this.stopHash && this.stopHash.equals(this.lastHash)) ||
     (this.stopHeight && this.stopHeight === block.height)) {
