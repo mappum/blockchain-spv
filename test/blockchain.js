@@ -3,6 +3,7 @@ var bitcoinjs = require('bitcoinjs-lib')
 var u = require('bitcoin-util')
 var levelup = require('levelup')
 var memdown = require('memdown')
+var assign = require('object-assign')
 var reverse = require('buffer-reverse')
 var params = require('webcoin-bitcoin').blockchain
 var Blockchain = require('../lib/blockchain.js')
@@ -20,9 +21,7 @@ function endStore (store, t) {
 }
 
 function blockFromObject (obj) {
-  var block = new bitcoinjs.Block()
-  for (var k in obj) block[k] = obj[k]
-  return block
+  return assign(new bitcoinjs.Block(), obj)
 }
 
 var maxTarget = new Buffer('7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'hex')
@@ -63,9 +62,7 @@ var defaultTestParams = {
 }
 
 function createTestParams (opts) {
-  var testParams = Object.assign({}, params)
-  testParams = Object.assign(testParams, defaultTestParams)
-  return Object.assign(testParams, opts)
+  return assign({}, params, defaultTestParams, opts)
 }
 
 test('create blockchain instance', function (t) {
@@ -324,10 +321,10 @@ test('blockchain verification', function (t) {
   })
 
   t.test('error on header with invalid difficulty change', function (t) {
-    var block = createBlock(headers[8], 0, 0x1f70ffff)
+    var block = createBlock(headers[8], 0, 0x207fffff)
     chain.addHeaders([ block ], function (err) {
       t.ok(err)
-      t.equal(err.message, 'Bits in block (1f70ffff) different than expected (201fffff)')
+      t.equal(err.message, 'Bits in block (207fffff) different than expected (201fffff)')
       t.end()
     })
   })

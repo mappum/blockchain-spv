@@ -7,10 +7,8 @@ var to = require('flush-write-stream').obj
 var inherits = require('inherits')
 var BlockStore = require('./blockStore.js')
 var HeaderStream = require('./headerStream.js')
-
-if (process.browser) {
-  require('setimmediate')
-}
+var assign = require('object-assign')
+if (!setImmediate) require('setimmediate')
 
 var storeClosedError = new Error('Store is closed')
 
@@ -32,7 +30,7 @@ var Blockchain = module.exports = function (params, db, opts) {
   var Block = params.Block || DefaultBlock
 
   function blockFromObject (obj) {
-    return Object.assign(new Block(), obj)
+    return assign(new Block(), obj)
   }
 
   var genesisHeader = blockFromObject(params.genesisHeader)
