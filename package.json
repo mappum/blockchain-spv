@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "standard src test && nyc tape test/*.js | faucet && nyc report",
-    "test-browser": "npm run build && test/browser.sh; npm run source",
+    "test-browser": "npm run build && test/browser.sh && npm run source",
     "build": "rm -rf lib && babel --presets es2015 src -d lib",
     "source": "rm -rf lib && ln -s src lib",
     "prepublish": "npm run build",
