@@ -79,13 +79,14 @@ HeaderStream.prototype._next = function () {
     var res = this._push(block)
     if ((this.stopHash && this.stopHash.equals(this.lastHash)) ||
     (this.stopHeight && this.stopHeight === block.height)) {
-      return this.push(null)
+      return this.end()
     }
     if (res) this._next()
   })
 }
 
 HeaderStream.prototype._push = function (block) {
+  if (this.ended) return
   this.cursor = block.next
   this.lastHash = block.header.getHash()
   this.lastBlock = block
