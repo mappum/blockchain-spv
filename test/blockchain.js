@@ -1,12 +1,10 @@
 var test = require('tape')
-var bitcoinjs = require('bitcoinjs-lib')
 var u = require('bitcoin-util')
 var levelup = require('levelup')
 var memdown = require('memdown')
-var assign = require('object-assign')
-var reverse = require('buffer-reverse')
 var params = require('webcoin-bitcoin').blockchain
 var Blockchain = require('../lib/blockchain.js')
+var utils = require('./utils.js')
 
 function deleteStore (store, cb) {
   memdown.clearGlobalStore()
@@ -18,51 +16,6 @@ function endStore (store, t) {
     t.error(err)
     deleteStore(store, t.end)
   })
-}
-
-function blockFromObject (obj) {
-  return assign(new bitcoinjs.Block(), obj)
-}
-
-var maxTarget = new Buffer('7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'hex')
-
-function validProofOfWork (header) {
-  var target = u.expandTarget(header.bits)
-  var hash = reverse(header.getHash())
-  return hash.compare(target) !== 1
-}
-
-function createBlock (prev, nonce, bits, validProof) {
-  var i = nonce || 0
-  validProof = validProof == null ? true : validProof
-  var header
-  do {
-    header = blockFromObject({
-      version: 1,
-      prevHash: prev ? prev.getHash() : u.nullHash,
-      merkleRoot: u.nullHash,
-      timestamp: prev ? (prev.timestamp + 1) : Math.floor(Date.now() / 1000),
-      bits: bits || (prev ? prev.bits : u.compressTarget(maxTarget)),
-      nonce: i++
-    })
-  } while (validProof !== validProofOfWork(header))
-  return header
-}
-
-var defaultTestParams = {
-  genesisHeader: {
-    version: 1,
-    prevHash: u.nullHash,
-    merkleRoot: u.nullHash,
-    timestamp: Math.floor(Date.now() / 1000),
-    bits: u.compressTarget(maxTarget),
-    nonce: 0
-  },
-  checkpoints: null
-}
-
-function createTestParams (opts) {
-  return assign({}, params, defaultTestParams, opts)
 }
 
 test('create blockchain instance', function (t) {
@@ -116,9 +69,9 @@ test('create blockchain instance', function (t) {
 })
 
 test('checkpoints in params', function (t) {
-  var params = createTestParams()
-  var block1 = createBlock(blockFromObject(params.genesisHeader))
-  var block2 = createBlock(block1)
+  var params = utils.createTestParams()
+  var block1 = utils.createBlock(utils.blockFromObject(params.genesisHeader))
+  var block2 = utils.createBlock(block1)
   params.checkpoints = [
     {
       height: 1,
@@ -205,17 +158,17 @@ test('getTip', function (t) {
 })
 
 test('blockchain paths', function (t) {
-  var testParams = createTestParams({
+  var testParams = utils.createTestParams({
     genesisHeader: {
       version: 1,
       prevHash: u.nullHash,
       merkleRoot: u.nullHash,
       timestamp: Math.floor(Date.now() / 1000),
-      bits: u.compressTarget(maxTarget),
+      bits: u.compressTarget(utils.maxTarget),
       nonce: 0
     }
   })
-  var genesis = blockFromObject(testParams.genesisHeader)
+  var genesis = utils.blockFromObject(testParams.genesisHeader)
   var db = levelup('paths.chain', { db: memdown })
   var chain
 
@@ -229,7 +182,7 @@ test('blockchain paths', function (t) {
     t.plan(53)
     var block = genesis
     for (var i = 0; i < 10; i++) {
-      block = createBlock(block)
+      block = utils.createBlock(block)
       headers.push(block);
       (function (block) {
         chain.on('block:' + block.getHash().toString('base64'), function (block2) {
@@ -308,7 +261,7 @@ test('blockchain paths', function (t) {
   t.test('fork headers add to blockchain', function (t) {
     var block = headers[4]
     for (var i = 0; i < 6; i++) {
-      block = createBlock(block, 0xffffff)
+      block = utils.createBlock(block, 0xffffff)
       headers2.push(block)
     }
     chain.on('reorg', function (e) {
@@ -392,12 +345,12 @@ test('blockchain paths', function (t) {
   })
 
   t.test('disjoint path', function (t) {
-    var genesis2 = blockFromObject({
+    var genesis2 = utils.blockFromObject({
       version: 2,
       prevHash: u.nullHash,
       merkleRoot: u.nullHash,
       timestamp: Math.floor(Date.now() / 1000),
-      bits: u.compressTarget(maxTarget),
+      bits: u.compressTarget(utils.maxTarget),
       nonce: 0
     })
     var from = { height: 0, header: genesis2 }
@@ -427,25 +380,25 @@ test('blockchain paths', function (t) {
 })
 
 test('blockchain verification', function (t) {
-  var testParams = createTestParams({
+  var testParams = utils.createTestParams({
     interval: 10
   })
   var db = levelup('verification.chain', { db: memdown })
   var chain = new Blockchain(testParams, db)
 
   var headers = []
-  var genesis = blockFromObject(testParams.genesisHeader)
+  var genesis = utils.blockFromObject(testParams.genesisHeader)
   t.test('headers add to blockchain', function (t) {
     var block = genesis
     for (var i = 0; i < 9; i++) {
-      block = createBlock(block)
+      block = utils.createBlock(block)
       headers.push(block)
     }
     chain.addHeaders(headers, t.end)
   })
 
   t.test('error on header that doesn\'t connect', function (t) {
-    var block = createBlock()
+    var block = utils.createBlock()
     chain.addHeaders([ block ], function (err) {
       t.ok(err)
       t.equal(err.message, 'Block does not connect to chain')
@@ -454,8 +407,8 @@ test('blockchain verification', function (t) {
   })
 
   t.test('error on nonconsecutive headers', function (t) {
-    var block1 = createBlock(headers[5], 10000)
-    var block2 = createBlock(headers[6], 10000)
+    var block1 = utils.createBlock(headers[5], 10000)
+    var block2 = utils.createBlock(headers[6], 10000)
 
     chain.addHeaders([ block1, block2 ], function (err) {
       t.ok(err)
@@ -465,7 +418,7 @@ test('blockchain verification', function (t) {
   })
 
   t.test('error on header with unexpected difficulty change', function (t) {
-    var block = createBlock(headers[5])
+    var block = utils.createBlock(headers[5])
     block.bits = 0x1d00ffff
     chain.addHeaders([ block ], function (err) {
       t.ok(err)
@@ -475,7 +428,7 @@ test('blockchain verification', function (t) {
   })
 
   t.test('error on header with invalid proof of work', function (t) {
-    var block = createBlock(headers[8], 0, genesis.bits, false)
+    var block = utils.createBlock(headers[8], 0, genesis.bits, false)
     chain.addHeaders([ block ], function (err) {
       t.ok(err)
       t.ok(err.message.indexOf('Mining hash is above target') === 0)
@@ -484,7 +437,7 @@ test('blockchain verification', function (t) {
   })
 
   t.test('error on header with invalid difficulty change', function (t) {
-    var block = createBlock(headers[8], 0, 0x207fffff)
+    var block = utils.createBlock(headers[8], 0, 0x207fffff)
     chain.addHeaders([ block ], function (err) {
       t.ok(err)
       t.equal(err.message, 'Bits in block (207fffff) different than expected (201fffff)')
@@ -493,7 +446,7 @@ test('blockchain verification', function (t) {
   })
 
   t.test('accept valid difficulty change', function (t) {
-    var block = createBlock(headers[8], 0, 0x201fffff)
+    var block = utils.createBlock(headers[8], 0, 0x201fffff)
     chain.addHeaders([ block ], t.end)
   })
 
@@ -503,8 +456,8 @@ test('blockchain verification', function (t) {
 })
 
 test('blockchain queries', function (t) {
-  var testParams = createTestParams()
-  var genesis = blockFromObject(testParams.genesisHeader)
+  var testParams = utils.createTestParams()
+  var genesis = utils.blockFromObject(testParams.genesisHeader)
   var db = levelup('queries.chain', { db: memdown })
   var chain = new Blockchain(testParams, db)
 
@@ -512,7 +465,7 @@ test('blockchain queries', function (t) {
   t.test('setup', function (t) {
     var block = genesis
     for (var i = 0; i < 100; i++) {
-      block = createBlock(block)
+      block = utils.createBlock(block)
       headers.push(block)
     }
     chain.addHeaders(headers, t.end)
@@ -617,17 +570,17 @@ test('blockchain queries', function (t) {
 })
 
 test('streams', function (t) {
-  var testParams = createTestParams({
+  var testParams = utils.createTestParams({
     genesisHeader: {
       version: 1,
       prevHash: u.nullHash,
       merkleRoot: u.nullHash,
       timestamp: Math.floor(Date.now() / 1000),
-      bits: u.compressTarget(maxTarget),
+      bits: u.compressTarget(utils.maxTarget),
       nonce: 0
     }
   })
-  var genesis = blockFromObject(testParams.genesisHeader)
+  var genesis = utils.blockFromObject(testParams.genesisHeader)
   var db = levelup('streams.chain', { db: memdown })
   var chain = new Blockchain(testParams, db)
   var writeStream
@@ -643,7 +596,7 @@ test('streams', function (t) {
     var prev = genesis
     var headers = []
     for (var i = 0; i < 10; i++) {
-      prev = headers[i] = createBlock(prev)
+      prev = headers[i] = utils.createBlock(prev)
     }
     chain.once('consumed', function () {
       t.equal(chain.tip.height, 10, 'chain now has higher tip')
@@ -695,7 +648,7 @@ test('streams', function (t) {
       var prev = chain.tip.header
       var headers = []
       for (var i = 0; i < 10; i++) {
-        prev = headers[i] = createBlock(prev)
+        prev = headers[i] = utils.createBlock(prev)
       }
       chain.addHeaders(headers, function () {})
     })
@@ -708,12 +661,12 @@ test('streams', function (t) {
         t.notOk(locatorStream.read(), 'nothing left to read')
         t.end()
       })
-      var genesis2 = blockFromObject({
+      var genesis2 = utils.blockFromObject({
         version: 2,
         prevHash: u.nullHash,
         merkleRoot: u.nullHash,
         timestamp: Math.floor(Date.now() / 1000),
-        bits: u.compressTarget(maxTarget),
+        bits: u.compressTarget(utils.maxTarget),
         nonce: 0
       })
       chain.addHeaders([ genesis2 ], function () {})
