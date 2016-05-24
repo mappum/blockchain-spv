@@ -179,7 +179,7 @@ test('blockchain paths', function (t) {
 
   var headers = []
   t.test('headers add to blockchain', function (t) {
-    t.plan(53)
+    t.plan(75)
     var block = genesis
     for (var i = 0; i < 10; i++) {
       block = utils.createBlock(block)
@@ -205,6 +205,22 @@ test('blockchain paths', function (t) {
 
     chain.once('headers', function (headers2) {
       t.equal(headers2, headers)
+      chain.getBlock(chain.genesis.hash, function (err, block) {
+        t.error(err, 'no error')
+        t.deepEqual(block.next, headers[0].getHash(), 'genesis has correct "next"')
+      })
+      for (var i = 0; i < headers.length - 1; i++) {
+        (function (i) {
+          chain.getBlock(headers[i].getHash(), function (err, block) {
+            t.error(err, 'no error')
+            t.deepEqual(block.next, headers[i + 1].getHash(), 'block has correct "next"')
+          })
+        })(i)
+      }
+      chain.getBlock(headers[9].getHash(), function (err, block) {
+        t.error(err, 'no error')
+        t.notOk(block.next, 'block has no "next"')
+      })
     })
     chain.addHeaders(headers, function (err) {
       t.pass('addHeaders cb called')
@@ -280,16 +296,22 @@ test('blockchain paths', function (t) {
       t.equal(e.path.add.length, 6, 'added blocks is correct length')
       t.equal(e.path.add[0].height, 6)
       t.equal(e.path.add[0].header.getId(), headers2[0].getId())
+      t.deepEqual(e.path.add[0].next, headers2[1].getHash(), '"next" is correct')
       t.equal(e.path.add[1].height, 7)
       t.equal(e.path.add[1].header.getId(), headers2[1].getId())
+      t.deepEqual(e.path.add[1].next, headers2[2].getHash(), '"next" is correct')
       t.equal(e.path.add[2].height, 8)
       t.equal(e.path.add[2].header.getId(), headers2[2].getId())
+      t.deepEqual(e.path.add[2].next, headers2[3].getHash(), '"next" is correct')
       t.equal(e.path.add[3].height, 9)
       t.equal(e.path.add[3].header.getId(), headers2[3].getId())
+      t.deepEqual(e.path.add[3].next, headers2[4].getHash(), '"next" is correct')
       t.equal(e.path.add[4].height, 10)
       t.equal(e.path.add[4].header.getId(), headers2[4].getId())
+      t.deepEqual(e.path.add[4].next, headers2[5].getHash(), '"next" is correct')
       t.equal(e.path.add[5].height, 11)
       t.equal(e.path.add[5].header.getId(), headers2[5].getId())
+      t.notOk(e.path.add[5].next, '"next" is correct')
       t.ok(e.tip)
       t.equal(e.tip.height, 11)
       t.equal(e.tip.header.getId(), headers2[5].getId())
