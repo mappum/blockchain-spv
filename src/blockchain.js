@@ -21,7 +21,7 @@ function validParameters (params) {
 
 var Blockchain = module.exports = function (params, db, opts) {
   if (!params || !validParameters(params)) {
-    throw new Error('Invalid network parameters')
+    throw new Error('Invalid blockchain parameters')
   }
   if (!db) throw new Error('Must specify db')
   this.params = params

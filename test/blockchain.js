@@ -66,9 +66,142 @@ function createTestParams (opts) {
 }
 
 test('create blockchain instance', function (t) {
-  var db = levelup('chain', { db: memdown })
+  t.test('no params', function (t) {
+    var db = levelup(Math.random() + '.chain', { db: memdown })
+    try {
+      var chain = new Blockchain(null, db)
+      t.notOk(chain, 'should have thrown error')
+    } catch (err) {
+      t.ok(err, 'threw error')
+      t.equal(err.message, 'Invalid blockchain parameters')
+      t.end()
+    }
+  })
+
+  t.test('invalid params', function (t) {
+    var db = levelup(Math.random() + '.chain', { db: memdown })
+    try {
+      var chain = new Blockchain({
+        genesisHeader: 1,
+        shouldRetarget: 1,
+        calculateTarget: 1,
+        miningHash: 1
+      }, db)
+      t.notOk(chain, 'should have thrown error')
+    } catch (err) {
+      t.ok(err, 'threw error')
+      t.equal(err.message, 'Invalid blockchain parameters')
+      t.end()
+    }
+  })
+
+  t.test('no db', function (t) {
+    try {
+      var chain = new Blockchain(params)
+      t.notOk(chain, 'should have thrown error')
+    } catch (err) {
+      t.ok(err, 'threw error')
+      t.equal(err.message, 'Must specify db')
+      t.end()
+    }
+  })
+
+  t.test('valid', function (t) {
+    var db = levelup(Math.random() + '.chain', { db: memdown })
+    var chain = new Blockchain(params, db)
+    chain.once('ready', function () { endStore(chain.store, t) })
+  })
+
+  t.end()
+})
+
+test('checkpoints in params', function (t) {
+  var params = createTestParams()
+  var block1 = createBlock(blockFromObject(params.genesisHeader))
+  var block2 = createBlock(block1)
+  params.checkpoints = [
+    {
+      height: 1,
+      header: block1
+    }, {
+      height: 2,
+      header: block2
+    }
+  ]
+
+  t.test('initializing blockchain with checkpoints', function (t) {
+    var db = levelup(Math.random() + '.chain', { db: memdown })
+    var chain = new Blockchain(params, db)
+    chain.once('ready', function () {
+      t.ok(chain.checkpoint, 'chain has checkpoint')
+      t.equal(chain.checkpoint, chain.tip, 'tip is at checkpoint')
+      t.equal(chain.tip.height, 2, 'correct height')
+      t.equal(chain.tip.hash.toString('hex'), block2.getHash().toString('hex'), 'correct hash')
+      t.deepEqual(chain.tip.header, block2, 'correct header')
+      endStore(chain.store, t)
+    })
+  })
+
+  t.test('initializing blockchain with ignoreCheckpoints', function (t) {
+    var db = levelup(Math.random() + '.chain', { db: memdown })
+    var chain = new Blockchain(params, db, { ignoreCheckpoints: true })
+    chain.once('ready', function () {
+      t.notOk(chain.checkpoint, 'chain doesn\'t have checkpoint')
+      t.equal(chain.genesis, chain.tip, 'tip is at genesis')
+      t.equal(chain.tip.height, 0, 'correct height')
+      endStore(chain.store, t)
+    })
+  })
+
+  t.end()
+})
+
+test('onceReady', function (t) {
+  var db = levelup(Math.random() + '.chain', { db: memdown })
   var chain = new Blockchain(params, db)
-  chain.once('ready', function () { endStore(chain.store, t) })
+
+  t.test('before ready', function (t) {
+    t.notOk(chain.initialized, 'chain.initialized === false')
+    chain.onceReady(function () { t.end() })
+  })
+
+  t.test('after ready', function (t) {
+    t.ok(chain.initialized, 'chain.initialized === true')
+    chain.onceReady(function () { t.end() })
+  })
+
+  t.end()
+})
+
+test('close', function (t) {
+  var db = levelup(Math.random() + '.chain', { db: memdown })
+  var chain = new Blockchain(params, db)
+  chain.once('ready', function () {
+    chain.getBlock(chain.tip.hash, function (err, block) {
+      t.error(err, 'no error')
+      t.ok('block', 'got block')
+      chain.close(function (err) {
+        t.pass('close cb called')
+        t.equal(chain.closed, true, 'chain.closed === true')
+        t.error(err, 'no error')
+        chain.getBlock(chain.tip.hash, function (err, block) {
+          t.ok(err, 'can\'t get from blockstore after chain closed')
+          t.equal(err.message, 'Database is not open', 'correct error message')
+          t.end()
+        })
+      })
+    })
+  })
+})
+
+test('getTip', function (t) {
+  var db = levelup(Math.random() + '.chain', { db: memdown })
+  var chain = new Blockchain(params, db)
+  chain.once('ready', function () {
+    var tip = chain.getTip()
+    t.deepEqual(tip, chain.tip, 'got tip')
+    t.end()
+  })
 })
 
 test('blockchain paths', function (t) {
@@ -258,6 +391,36 @@ test('blockchain paths', function (t) {
     })
   })
 
+  t.test('disjoint path', function (t) {
+    var genesis2 = blockFromObject({
+      version: 2,
+      prevHash: u.nullHash,
+      merkleRoot: u.nullHash,
+      timestamp: Math.floor(Date.now() / 1000),
+      bits: u.compressTarget(maxTarget),
+      nonce: 0
+    })
+    var from = { height: 0, header: genesis2 }
+    var to = chain.tip
+    chain.getPath(from, to, function (err, path) {
+      t.ok(err, 'got error')
+      t.equal(err.message, 'Blocks are not in the same chain', 'correct error message')
+      t.end()
+    })
+  })
+
+  t.test('getPathToTip', function (t) {
+    var from = { height: 10, header: headers[9] }
+    chain.getPath(from, chain.tip, function (err, path1) {
+      t.error(err)
+      chain.getPathToTip(from, function (err, path2) {
+        t.error(err)
+        t.deepEqual(path1, path2, 'paths are equal')
+        t.end()
+      })
+    })
+  })
+
   t.test('deleting blockstore', function (t) {
     endStore(chain.store, t)
   })
@@ -430,6 +593,21 @@ test('blockchain queries', function (t) {
     chain.getBlock(123, function (err, block) {
       t.ok(err)
       t.equal(err.message, '"hash" must be a Buffer')
+    })
+  })
+
+  t.test('get locator', function (t) {
+    chain.getLocator(function (err, locator) {
+      t.error(err, 'no error')
+      t.ok(locator, 'got locator')
+      t.equal(locator.length, 6, 'locator has 6 hashes')
+      t.deepEqual(locator[0], headers[99].getHash())
+      t.deepEqual(locator[1], headers[98].getHash())
+      t.deepEqual(locator[2], headers[97].getHash())
+      t.deepEqual(locator[3], headers[96].getHash())
+      t.deepEqual(locator[4], headers[95].getHash())
+      t.deepEqual(locator[5], headers[94].getHash())
+      t.end()
     })
   })
 
