@@ -117,8 +117,8 @@ test('stream options', function (t) {
     })
   })
 
-  t.test('stopHash', function (t) {
-    var hs = chain.createReadStream({ stopHash: headers[3].getHash() })
+  t.test('toHash', function (t) {
+    var hs = chain.createReadStream({ toHash: headers[3].getHash() })
     var i = 0
     hs.on('data', function (block) {
       t.equal(block.height, i, 'correct height')
@@ -133,8 +133,8 @@ test('stream options', function (t) {
     })
   })
 
-  t.test('stopHeight', function (t) {
-    var hs = chain.createReadStream({ stopHeight: 4 })
+  t.test('toHeight', function (t) {
+    var hs = chain.createReadStream({ toHeight: 4 })
     var i = 0
     hs.on('data', function (block) {
       t.equal(block.height, i, 'correct height')
@@ -149,3 +149,9 @@ test('stream options', function (t) {
     })
   })
 })
+
+// test('reorgs', function (t) {
+//   t.test('simple reorg', function (t) {
+//     var hs = chain.createReadStream({ from:  })
+//   })
+// })
