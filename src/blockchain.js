@@ -149,7 +149,6 @@ Blockchain.prototype.getPath = function (from, to, cb) {
     addTraversedBlock(block)
     this.getBlock(block.header.prevHash, traverseDown)
   }
-  traverseDown(null, top)
 
   // traverse down from both blocks until we find one block that is the same
   var traverseToFork = (left, right) => {
@@ -174,6 +173,7 @@ Blockchain.prototype.getPath = function (from, to, cb) {
       })
     })
   }
+  traverseDown(null, top)
 }
 
 Blockchain.prototype.getPathToTip = function (from, cb) {
@@ -305,6 +305,7 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
 
       // TODO: add even if it doesn't pass the current tip
       // (makes us store orphan forks, and lets us handle reorgs > 2000 blocks)
+
       if (last.height > previousTip.height) {
         this.getPath(previousTip, last, (err, path) => {
           if (err) return done(err, last)
