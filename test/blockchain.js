@@ -615,3 +615,110 @@ test('blockchain queries', function (t) {
     endStore(chain.store, t)
   })
 })
+
+test('streams', function (t) {
+  var testParams = createTestParams({
+    genesisHeader: {
+      version: 1,
+      prevHash: u.nullHash,
+      merkleRoot: u.nullHash,
+      timestamp: Math.floor(Date.now() / 1000),
+      bits: u.compressTarget(maxTarget),
+      nonce: 0
+    }
+  })
+  var genesis = blockFromObject(testParams.genesisHeader)
+  var db = levelup('streams.chain', { db: memdown })
+  var chain = new Blockchain(testParams, db)
+  var writeStream
+
+  t.test('wait for ready', function (t) {
+    chain.onceReady(t.end.bind(t))
+  })
+
+  t.test('write stream', function (t) {
+    writeStream = chain.createWriteStream()
+    t.ok(writeStream, 'got writeStream')
+    t.ok(writeStream.writable, 'is writable')
+    var prev = genesis
+    var headers = []
+    for (var i = 0; i < 10; i++) {
+      prev = headers[i] = createBlock(prev)
+    }
+    chain.once('consumed', function () {
+      t.equal(chain.tip.height, 10, 'chain now has higher tip')
+      t.deepEqual(chain.tip.header, headers[9], 'chain tip has correct header')
+      t.end()
+    })
+    writeStream.write(headers)
+  })
+
+  t.test('read stream', function (t) {
+    // see headerStream.js for more detailed tests
+    t.plan(23)
+    var readStream = chain.createReadStream()
+    t.ok(readStream, 'got readStream')
+    var height = 0
+    readStream.on('data', function (block) {
+      t.ok(block, 'got block')
+      t.equal(block.height, height++, 'block at correct height')
+      if (block.height === 10) readStream.end()
+    })
+  })
+
+  t.test('locator stream', function (t) {
+    var locatorStream
+    t.test('create locator stream', function (t) {
+      locatorStream = chain.createLocatorStream()
+      t.ok(locatorStream, 'got locator stream')
+      t.end()
+    })
+
+    t.test('get initial locator', function (t) {
+      locatorStream.once('data', function (locator) {
+        t.ok(locator, 'got locator')
+        t.equal(locator.length, 6, 'locator is correct length')
+        t.deepEqual(locator[0], chain.tip.hash, 'locator starts with tip')
+        t.notOk(locatorStream.read(), 'nothing left to read')
+        t.end()
+      })
+    })
+
+    t.test('locator pushed after valid headers added', function (t) {
+      locatorStream.once('data', function (locator) {
+        t.ok(locator, 'got locator')
+        t.equal(locator.length, 6, 'locator is correct length')
+        t.deepEqual(locator[0], chain.tip.hash, 'locator starts with tip')
+        t.notOk(locatorStream.read(), 'nothing left to read')
+        t.end()
+      })
+      var prev = chain.tip.header
+      var headers = []
+      for (var i = 0; i < 10; i++) {
+        prev = headers[i] = createBlock(prev)
+      }
+      chain.addHeaders(headers, function () {})
+    })
+
+    t.test('locator pushed after invalid headers added', function (t) {
+      locatorStream.once('data', function (locator) {
+        t.ok(locator, 'got locator')
+        t.equal(locator.length, 6, 'locator is correct length')
+        t.deepEqual(locator[0], chain.tip.hash, 'locator starts with tip')
+        t.notOk(locatorStream.read(), 'nothing left to read')
+        t.end()
+      })
+      var genesis2 = blockFromObject({
+        version: 2,
+        prevHash: u.nullHash,
+        merkleRoot: u.nullHash,
+        timestamp: Math.floor(Date.now() / 1000),
+        bits: u.compressTarget(maxTarget),
+        nonce: 0
+      })
+      chain.addHeaders([ genesis2 ], function () {})
+    })
+
+    t.end()
+  })
+})
