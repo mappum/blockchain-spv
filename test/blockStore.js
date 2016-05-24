@@ -5,9 +5,6 @@ var levelup = require('levelup')
 var u = require('bitcoin-util')
 var BlockStore = require('../lib/blockStore.js')
 
-// TODO: get/setTip tests
-// TODO: tests for put with { tip: true }
-
 function createBlock () {
   var header = blockFromObject({
     version: 1,
@@ -26,11 +23,30 @@ function blockFromObject (obj) {
   return block
 }
 
+test('try to create blockstore with no db', function (t) {
+  try {
+    var bs = new BlockStore({})
+    t.notOk(bs, 'should have thrown error')
+  } catch (err) {
+    t.ok(err, 'threw error')
+    t.equal(err.message, 'Must specify "db" option')
+    t.end()
+  }
+})
+
 test('open blockstore', function (t) {
   var db = levelup('test', { db: memdown })
-  var bs1 = new BlockStore({ db: db }, t.error)
+  var bs1 = new BlockStore({ db: db })
   bs1.on('error', t.error)
-  bs1.close(t.end)
+
+  t.test('isOpen', function (t) {
+    t.ok(bs1.isOpen(), 'bs.isOpen() === true')
+    t.end()
+  })
+
+  t.test('close', function (t) {
+    bs1.close(t.end)
+  })
 })
 
 test('blockstore put', function (t) {
@@ -137,4 +153,48 @@ test('blockstore get', function (t) {
     })
     t.end()
   })
+})
+
+test('chain linking', function (t) {
+  var db = levelup('linking', { db: memdown })
+  var bs = new BlockStore({ db: db })
+  var block1 = createBlock()
+  var block2 = createBlock()
+  block2.height = block2.height + 1
+  block2.header.prevHash = block1.header.getHash()
+  bs.put(block1, function (err) {
+    t.error(err)
+    bs.put(block2, { tip: true, prev: block1 }, function (err) {
+      t.error(err)
+      bs.get(block1.header.getHash(), function (err, block) {
+        t.error(err)
+        t.deepEqual(block.next, block2.header.getHash(), 'first block now points to second block')
+        t.end()
+      })
+    })
+  })
+})
+
+test('tips', function (t) {
+  var db = levelup('test3', { db: memdown })
+  var bs = new BlockStore({ db: db })
+  var block = createBlock()
+
+  t.test('put with "tip" option', function (t) {
+    bs.put(block, { tip: true }, function (err) {
+      t.error(err, 'no error')
+      t.end()
+    })
+  })
+
+  t.test('getTip', function (t) {
+    bs.getTip(function (err, block2) {
+      t.error(err, 'no error')
+      t.ok(block, 'got block')
+      t.deepEqual(block2.header, block.header, 'block is correct')
+      t.end()
+    })
+  })
+
+  t.end()
 })
