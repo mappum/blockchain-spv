@@ -294,7 +294,6 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
     cb(err, last)
   }
 
-  // TODO: store all orphan tips
   this.getBlock(headers[0].prevHash, (err, start) => {
     if (err && err.name === 'NotFoundError') return done(new Error('Block does not connect to chain'))
     if (err) return done(err)
@@ -329,25 +328,19 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
 }
 
 Blockchain.prototype._addHeader = function (prev, header, cb) {
-  if (typeof header === 'function') {
-    cb = header
-    header = null
-  }
-  if (header == null) {
-    header = prev
-    prev = this.tip
-  }
-
   var height = prev.height + 1
   var block = {
     height: height,
     hash: header.getHash(),
     header: header
   }
+  // if prev has a "next" pointer, then it is in the best chain, so we
+  // won't change it to point to this block (yet)
+  var link = !prev.next
 
   var put = () => {
     var tip = height > this.tip.height
-    this._put({ header: header, height: height }, { tip: tip, prev: prev }, (err) => {
+    this._put({ header: header, height: height }, { tip: tip, prev: prev, link: link }, (err) => {
       if (err) return cb(err)
       this.emit('block', block)
       this.emit(`block:${block.hash.toString('base64')}`, block)

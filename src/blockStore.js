@@ -42,6 +42,7 @@ BlockStore.prototype.put = function (block, opts, cb) {
   if (block.height == null) return cb(new Error('Must specify height'))
   if (block.header == null) return cb(new Error('Must specify header'))
   if (opts.tip) opts.best = true
+  if (opts.best) opts.link = true
 
   var blockEncoded = storedBlock.encode({
     height: block.height,
@@ -57,7 +58,7 @@ BlockStore.prototype.put = function (block, opts, cb) {
       valueEncoding: this.valueEncoding
     }
   ]
-  if (opts.best && opts.prev) {
+  if (opts.link && opts.prev) {
     var prevEncoded = storedBlock.encode({
       height: opts.prev.height,
       header: opts.prev.header.toBuffer(),
