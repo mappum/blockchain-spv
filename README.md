@@ -44,6 +44,16 @@ Adds block headers to the chain. `headers` should be an array of contiguous, asc
 Returns a writable stream that takes in arrays of block headers and adds them to the chain. This is essentially just a stream wrapper for `chain.addHeaders()`, making it easier to get headers from a `HeaderStream` (from the [`bitcoin-net`](https://github.com/mappum/bitcoin-net) module).
 
 ----
+#### `chain.createReadStream([opts])`
+
+Returns a readable stream that outputs blocks from the blockchain (in order). The stream will stay open even when it reaches the chain tip, and will output new blocks as they are received (this means you don't have to think about whether the chain is done syncing or not).
+
+If a reorg happens (blocks that have been emitted are now on an invalid fork), the stream will emit the now-invalid blocks again in descending order (so that each can be un-processed). Each block has a boolean `add` property which is `false` if it is being removed from the chain. **NOTE:** It is important to always check the value of `block.add` and un-process blocks when they are invalidated.
+
+`opts` may contain the following options:
+- `from` *Buffer* (default: `null`) - start the stream at the block with this hash
+
+----
 #### `chain.getBlock(hash, callback)`
 
 Gets a block in the chain with hash `hash`. `hash` must be a Buffer. The callback is called with `cb(err, block)`.
