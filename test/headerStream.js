@@ -116,38 +116,6 @@ test('stream options', function (t) {
       }
     })
   })
-
-  t.test('toHash', function (t) {
-    var hs = chain.createReadStream({ toHash: headers[3].getHash() })
-    var i = 0
-    hs.on('data', function (block) {
-      t.equal(block.height, i, 'correct height')
-      var header = i > 0 ? headers[i - 1] : genesis
-      t.deepEqual(block.header, header, 'correct header')
-      t.ok(block.add, 'block.add === true')
-      i++
-    })
-    hs.once('end', function () {
-      t.equal(i, 5, 'stopped at correct height')
-      t.end()
-    })
-  })
-
-  t.test('toHeight', function (t) {
-    var hs = chain.createReadStream({ toHeight: 4 })
-    var i = 0
-    hs.on('data', function (block) {
-      t.equal(block.height, i, 'correct height')
-      var header = i > 0 ? headers[i - 1] : genesis
-      t.deepEqual(block.header, header, 'correct header')
-      t.ok(block.add, 'block.add === true')
-      i++
-    })
-    hs.once('end', function () {
-      t.equal(i, 5, 'stopped at correct height')
-      t.end()
-    })
-  })
 })
 
 var headers2
