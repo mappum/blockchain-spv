@@ -51,7 +51,7 @@ Returns a readable stream that outputs blocks from the blockchain (in order). Th
 If a reorg happens (blocks that have been emitted are now on an invalid fork), the stream will emit the now-invalid blocks again in descending order (so that each can be un-processed). Each block has a boolean `add` property which is `false` if it is being removed from the chain. **NOTE:** It is important to always check the value of `block.add` and un-process blocks when they are invalidated.
 
 `opts` may contain the following options:
-- `from` *Buffer* (default: `null`) - start the stream at the block with this hash
+- `from` *Buffer* (default: `null`) - start the stream at the block with this hash (exclusive). If `from` is `null`, the stream will start at the genesis block.
 
 ----
 #### `chain.getBlock(hash, callback)`
