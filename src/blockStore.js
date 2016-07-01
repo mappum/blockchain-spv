@@ -5,7 +5,8 @@ var inherits = require('inherits')
 var reverse = require('buffer-reverse')
 var struct = require('varstruct')
 var varint = require('varuint-bitcoin')
-var u = require('bitcoin-util')
+var transaction = require('level-transactions')
+require('setimmediate')
 
 var storedBlock = struct([
   { name: 'height', type: struct.UInt32LE },
@@ -22,81 +23,119 @@ function encodeKey (hash) {
   throw new Error('Invalid hash')
 }
 
+var TX_TTL = 20 * 1000
+
 var BlockStore = module.exports = function (opts) {
   if (!opts.db) {
     throw new Error('Must specify "db" option')
   }
   this.db = opts.db
+  this.tx = null
+  this.txTimeout = null
+  this.committing = false
   this.Block = opts.Block || DefaultBlock
 
   this.keyEncoding = 'utf8'
   this.valueEncoding = 'binary'
+  this.dbOpts = {
+    keyEncoding: this.keyEncoding,
+    valueEncoding: this.valueEncoding
+  }
 }
 inherits(BlockStore, EventEmitter)
+
+BlockStore.prototype.commit = function (cb) {
+  cb = cb || ((err) => { if (err) this.emit('error', err) })
+  var oldTx = this.tx
+  this.tx = null
+  if (this.txTimeout) clearTimeout(this.txTimeout)
+  if (oldTx) {
+    this.committing = true
+    oldTx.commit((err) => {
+      this.committing = false
+      this.emit('commit')
+      cb(err)
+    })
+  } else {
+    cb(null)
+  }
+}
+
+BlockStore.prototype._createTx = function () {
+  if (this.tx) throw new Error('A db transaction already exists')
+  this.tx = transaction(this.db, { ttl: TX_TTL * 2 })
+  this.txTimeout = setTimeout(this.commit.bind(this), TX_TTL)
+  if (this.txTimeout.unref) this.txTimeout.unref()
+  return this.tx
+}
 
 BlockStore.prototype.put = function (block, opts, cb) {
   if (typeof opts === 'function') {
     cb = opts
     opts = {}
   }
+  if (this.isClosed()) return cb(new Error('Database is not open'))
   if (block.height == null) return cb(new Error('Must specify height'))
   if (block.header == null) return cb(new Error('Must specify header'))
   if (opts.tip) opts.best = true
   if (opts.best) opts.link = true
+  if (opts.commit) {
+    let _cb = cb
+    cb = (err) => {
+      if (err) return _cb(err)
+      this.commit(_cb)
+    }
+  }
 
   var blockEncoded = storedBlock.encode({
     height: block.height,
     header: block.header.toBuffer(),
     next: u.nullHash
   })
-  var batch = [
-    {
-      type: 'put',
-      key: encodeKey(block.header.getHash()),
-      value: blockEncoded,
-      keyEncoding: this.keyEncoding,
-      valueEncoding: this.valueEncoding
-    }
-  ]
+  var tx = this.tx || this._createTx()
+  tx.put(encodeKey(block.header.getHash()),
+    blockEncoded, this.dbOpts)
   if (opts.link && opts.prev) {
     var prevEncoded = storedBlock.encode({
       height: opts.prev.height,
       header: opts.prev.header.toBuffer(),
       next: block.header.getHash()
     })
-    batch.push({
-      type: 'put',
-      key: encodeKey(opts.prev.header.getHash()),
-      value: prevEncoded,
-      keyEncoding: this.keyEncoding,
-      valueEncoding: this.valueEncoding
-    })
+    tx.put(encodeKey(opts.prev.header.getHash()),
+      prevEncoded, this.dbOpts)
   }
-  this.db.batch(batch, (err) => {
-    if (err) return cb(err)
-    if (opts.tip) {
-      return this._setTip({ height: block.height, hash: block.header.getId() }, cb)
-    }
+  if (opts.tip) {
+    this._setTip({ height: block.height, hash: block.header.getId() }, cb)
+  } else {
     cb(null)
-  })
+  }
 }
 
 BlockStore.prototype.get = function (hash, cb) {
+  if (this.isClosed()) return cb(new Error('Database is not open'))
+  if (this.committing) {
+    this.once('commit', () => this.get(hash, cb))
+    return
+  }
+
   try {
     var key = encodeKey(hash)
   } catch (err) {
     return cb(err)
   }
 
-  this.db.get(key, {
+  var db = this.tx || this.db
+  db.get(key, {
     keyEncoding: this.keyEncoding,
     valueEncoding: this.valueEncoding
   }, (err, data) => {
     if (err) return cb(err)
-    var block = storedBlock.decode(data)
-    block.header = this.Block.fromBuffer(block.header)
-    if (block.next.equals(u.nullHash)) block.next = null
-    cb(null, block)
+    setImmediate(() => {
+      var block = storedBlock.decode(data)
+      block.header = this.Block.fromBuffer(block.header)
+      if (block.next.equals(u.nullHash)) block.next = null
+      cb(null, block)
+    })
   })
 }
 
@@ -104,7 +143,7 @@ BlockStore.prototype._setTip = function (tip, cb) {
   var newTip = {}
   for (var k in tip) newTip[k] = tip[k]
   delete newTip.header
-  this.db.put('tip', newTip, {
+  this.tx.put('tip', newTip, {
     keyEncoding: 'utf8',
     valueEncoding: 'json'
   }, cb)
@@ -112,7 +151,12 @@ BlockStore.prototype._setTip = function (tip, cb) {
 
 BlockStore.prototype.getTip = function (cb) {
   var self = this
-  this.db.get('tip', {
+  if (this.committing) {
+    this.once('commit', () => this.getTip(cb))
+    return
+  }
+  var db = this.tx || this.db
+  db.get('tip', {
     keyEncoding: 'utf8',
     valueEncoding: 'json'
   }, (err, tip) => {
@@ -127,7 +171,8 @@ BlockStore.prototype.getTip = function (cb) {
 }
 
 BlockStore.prototype.close = function (cb) {
-  this.db.close(cb)
+  if (this.isClosed()) return cb(null)
+  this.commit(() => this.db.close(cb))
 }
 
 BlockStore.prototype.isClosed = function () {
