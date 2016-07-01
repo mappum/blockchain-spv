@@ -54,7 +54,7 @@ var Blockchain = module.exports = function (params, db, opts) {
   this.closed = false
   this.adding = false
 
-  this.store = new BlockStore({ db: db, Block: Block })
+  this.store = new BlockStore({ db, Block })
   this._initialize()
 }
 inherits(Blockchain, EventEmitter)
@@ -80,7 +80,7 @@ Blockchain.prototype._initStore = function (cb) {
     this.store.get(block.hash, (err) => {
       if (err && !err.notFound) return cb(err)
       if (this.closed || this.store.isClosed()) return cb(storeClosedError)
-      this.store.put(block, cb)
+      this.store.put(block, { commit: true }, cb)
     })
   }
 
@@ -291,7 +291,7 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
     if (err) this.emit('headerError', err)
     else this.emit('headers', headers)
     this.adding = false
-    cb(err, last)
+    this.store.commit((err2) => cb(err || err2, last))
   }
 
   this.getBlock(headers[0].prevHash, (err, start) => {
