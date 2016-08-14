@@ -25,7 +25,7 @@
     "bitcoinjs-lib": "^2.2.0",
     "buffer-reverse": "^1.0.1",
     "flush-write-stream": "^1.0.0",
-    "from2": "^2.1.1",
+    "from2": "^2.2.0",
     "inherits": "^2.0.1",
     "level-transactions": "^1.5.3",
     "object-assign": "^4.1.0",
