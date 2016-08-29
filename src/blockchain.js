@@ -20,6 +20,7 @@ function validParameters (params) {
 }
 
 var Blockchain = module.exports = function (params, db, opts) {
+  if (!(this instanceof Blockchain)) return new Blockchain(params, db, opts)
   if (!params || !validParameters(params)) {
     throw new Error('Invalid blockchain parameters')
   }
@@ -50,7 +51,7 @@ var Blockchain = module.exports = function (params, db, opts) {
     this.tip = this.checkpoint
   }
 
-  this.initialized = false
+  this.ready = false
   this.closed = false
   this.adding = false
 
@@ -60,7 +61,7 @@ var Blockchain = module.exports = function (params, db, opts) {
 inherits(Blockchain, EventEmitter)
 
 Blockchain.prototype._initialize = function () {
-  if (this.initialized) {
+  if (this.ready) {
     return this._error(new Error('Already initialized'))
   }
 
@@ -69,7 +70,7 @@ Blockchain.prototype._initialize = function () {
     this.store.getTip((err, tip) => {
       if (err && err.name !== 'NotFoundError') return this._error(err)
       if (tip) this.tip = tip
-      this.initialized = true
+      this.ready = true
       this.emit('ready')
     })
   })
@@ -90,7 +91,7 @@ Blockchain.prototype._initStore = function (cb) {
 }
 
 Blockchain.prototype.onceReady = function (cb) {
-  if (this.initialized) return cb()
+  if (this.ready) return cb()
   this.once('ready', cb)
 }
 
@@ -180,15 +181,15 @@ Blockchain.prototype.getPathToTip = function (from, cb) {
   this.getPath(from, this.tip, cb)
 }
 
-Blockchain.prototype.getBlock = function (hash, cb) {
+Blockchain.prototype.getBlock = function (hash, opts, cb) {
+  if (typeof opts === 'function') {
+    cb = opts
+    opts = {}
+  }
   if (!Buffer.isBuffer(hash)) {
     return cb(new Error('"hash" must be a Buffer'))
   }
-  if (!this.initialized) {
-    this.once('ready', () => this.getBlock(hash, cb))
-    return
-  }
-  this.store.get(hash, cb)
+  this.onceReady(() => this.store.get(hash, cb))
 }
 
 Blockchain.prototype.getBlockAtTime = function (time, cb) {
@@ -240,15 +241,12 @@ Blockchain.prototype.getLocator = function (from, cb) {
 }
 
 Blockchain.prototype._error = function (err) {
+  if (!err) return
   this.emit('error', err)
 }
 
 Blockchain.prototype._put = function (hash, opts, cb) {
-  if (!this.initialized) {
-    this.once('ready', () => this._put(hash, opts, cb))
-    return
-  }
-  this.store.put(hash, opts, cb)
+  this.onceReady(() => this.store.put(hash, opts, cb))
 }
 
 Blockchain.prototype.createWriteStream = function () {

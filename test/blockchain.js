@@ -114,12 +114,12 @@ test('onceReady', function (t) {
   var chain = new Blockchain(params, db)
 
   t.test('before ready', function (t) {
-    t.notOk(chain.initialized, 'chain.initialized === false')
+    t.notOk(chain.ready, 'chain.ready === false')
     chain.onceReady(function () { t.end() })
   })
 
   t.test('after ready', function (t) {
-    t.ok(chain.initialized, 'chain.initialized === true')
+    t.ok(chain.ready, 'chain.ready === true')
     chain.onceReady(function () { t.end() })
   })
 
