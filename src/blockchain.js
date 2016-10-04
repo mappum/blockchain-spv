@@ -55,7 +55,8 @@ var Blockchain = module.exports = function (params, db, opts) {
   this.closed = false
   this.adding = false
 
-  this.store = new BlockStore({ db, Block })
+  var indexInterval = params.interval
+  this.store = new BlockStore({ db, Block, indexInterval })
   this._initialize()
 }
 inherits(Blockchain, EventEmitter)
@@ -208,16 +209,16 @@ Blockchain.prototype.getBlockAtHeight = function (height, cb) {
   if (height > this.tip.height) return cb(new Error('height is higher than tip'))
   if (height < 0) return cb(new Error('height must be >= 0'))
 
-  var down = height > this.tip.height / 2
-
-  var traverse = (err, block) => {
+  this.store.getIndex(height, (err, indexHash) => {
     if (err) return cb(err)
-    if (block.height === height) return cb(null, block)
-    // TODO: remove traversal using block.next by indexing by height every so
-    // often and traversing down using header.prevHash
-    this.getBlock(down ? block.header.prevHash : block.next, traverse)
-  }
-  this.getBlock(down ? this.tip.hash : this.genesis.hash, traverse)
+
+    var traverse = (err, block) => {
+      if (err) return cb(err)
+      if (block.height === height) return cb(null, block)
+      this.getBlock(block.next, traverse)
+    }
+    this.getBlock(indexHash, traverse)
+  })
 }
 
 Blockchain.prototype.getLocator = function (from, cb) {
