@@ -34,6 +34,7 @@ var BlockStore = module.exports = function (opts) {
   this.txTimeout = null
   this.committing = false
   this.Block = opts.Block || DefaultBlock
+  this.indexInterval = opts.indexInterval
 
   this.keyEncoding = 'utf8'
   this.valueEncoding = 'binary'
@@ -87,14 +88,16 @@ BlockStore.prototype.put = function (block, opts, cb) {
     }
   }
 
+  var tx = this.tx || this._createTx()
+
   var blockEncoded = storedBlock.encode({
     height: block.height,
     header: block.header.toBuffer(),
     next: u.nullHash
   })
-  var tx = this.tx || this._createTx()
-  tx.put(encodeKey(block.header.getHash()),
-    blockEncoded, this.dbOpts)
+  var hash = block.header.getHash()
+  tx.put(encodeKey(hash), blockEncoded, this.dbOpts)
+
   if (opts.link && opts.prev) {
     var prevEncoded = storedBlock.encode({
       height: opts.prev.height,
@@ -104,6 +107,11 @@ BlockStore.prototype.put = function (block, opts, cb) {
     tx.put(encodeKey(opts.prev.header.getHash()),
       prevEncoded, this.dbOpts)
   }
+
+  if (block.height % this.indexInterval === 0) {
+    tx.put(block.height.toString(), hash, this.dbOpts)
+  }
+
   if (opts.tip) {
     this._setTip({ height: block.height, hash: block.header.getId() }, cb)
   } else {
@@ -125,10 +133,7 @@ BlockStore.prototype.get = function (hash, cb) {
   }
 
   var db = this.tx || this.db
-  db.get(key, {
-    keyEncoding: this.keyEncoding,
-    valueEncoding: this.valueEncoding
-  }, (err, data) => {
+  db.get(key, this.dbOpts, (err, data) => {
     if (err) return cb(err)
     setImmediate(() => {
       var block = storedBlock.decode(data)
@@ -137,6 +142,19 @@ BlockStore.prototype.get = function (hash, cb) {
       cb(null, block)
     })
   })
+}
+
+BlockStore.prototype.getIndex = function (height, cb) {
+  if (this.committing) {
+    this.once('commit', () => this.getTip(cb))
+    return
+  }
+  var interval = this.indexInterval
+  // we use floor instead of round because we might have not yet
+  // synced to the larger height (ceil)
+  var indexHeight = Math.floor(height / interval) * interval
+  var db = this.tx || this.db
+  db.get(indexHeight.toString(), this.dbOpts, cb)
 }
 
 BlockStore.prototype._setTip = function (tip, cb) {
