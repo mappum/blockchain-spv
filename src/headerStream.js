@@ -71,6 +71,7 @@ HeaderStream.prototype._next = function () {
       let done = () => {
         this.paused = false
         this.first = false
+        this.emit('init')
         setImmediate(this._next.bind(this))
       }
       this.chain.getBlockAtHeight(block.height, (err, bestChainBlock) => {

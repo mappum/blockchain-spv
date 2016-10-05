@@ -215,7 +215,6 @@ Blockchain.prototype.getBlockAtHeight = function (height, cb) {
     var traverse = (err, block) => {
       if (err) return cb(err)
       if (block.height === height) return cb(null, block)
-      console.log(block, height)
       this.getBlock(block.next, traverse)
     }
     this.getBlock(indexHash, traverse)

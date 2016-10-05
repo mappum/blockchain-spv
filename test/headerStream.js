@@ -145,9 +145,12 @@ test('reorgs', function (t) {
         hs.end()
       }
     })
-    chain.addHeaders(headers2, function (err) {
-      t.error(err, 'no error')
-      t.end()
+    // reorg once stream is initialized
+    hs.once('init', () => {
+      chain.addHeaders(headers2, function (err) {
+        t.error(err, 'no error')
+        t.end()
+      })
     })
   })
 
