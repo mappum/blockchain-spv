@@ -47,12 +47,12 @@ inherits(BlockStore, EventEmitter)
 
 BlockStore.prototype.commit = function (cb) {
   cb = cb || ((err) => { if (err) this.emit('error', err) })
-  var oldTx = this.tx
+  var tx = this.tx
   this.tx = null
   if (this.txTimeout) clearTimeout(this.txTimeout)
-  if (oldTx) {
+  if (tx) {
     this.committing = true
-    oldTx.commit((err) => {
+    tx.commit((err) => {
       this.committing = false
       this.emit('commit')
       cb(err)
@@ -62,11 +62,14 @@ BlockStore.prototype.commit = function (cb) {
   }
 }
 
-BlockStore.prototype._createTx = function () {
+BlockStore.prototype.createTx = function (ttl) {
   if (this.tx) throw new Error('A db transaction already exists')
-  this.tx = transaction(this.db, { ttl: TX_TTL * 2 })
-  this.txTimeout = setTimeout(this.commit.bind(this), TX_TTL)
-  if (this.txTimeout.unref) this.txTimeout.unref()
+  var opts = { ttl: ttl ? ttl * 2 : null }
+  this.tx = transaction(this.db, opts)
+  if (ttl) {
+    this.txTimeout = setTimeout(this.commit.bind(this), ttl)
+    if (this.txTimeout.unref) this.txTimeout.unref()
+  }
   return this.tx
 }
 
@@ -88,7 +91,7 @@ BlockStore.prototype.put = function (block, opts, cb) {
     }
   }
 
-  var tx = this.tx || this._createTx()
+  var tx = this.tx || this.createTx(TX_TTL)
 
   var blockEncoded = storedBlock.encode({
     height: block.height,
@@ -108,7 +111,8 @@ BlockStore.prototype.put = function (block, opts, cb) {
       prevEncoded, this.dbOpts)
   }
 
-  if (block.height % this.indexInterval === 0) {
+  var shouldIndex = block.height === 0 || opts.best
+  if (shouldIndex && block.height % this.indexInterval === 0) {
     tx.put(block.height.toString(), hash, this.dbOpts)
   }
 
