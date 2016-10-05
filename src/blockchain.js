@@ -9,6 +9,7 @@ var BlockStore = require('./blockStore.js')
 var HeaderStream = require('./headerStream.js')
 var assign = require('object-assign')
 if (!setImmediate) require('setimmediate')
+var { floor } = Math
 
 var storeClosedError = new Error('Store is closed')
 
@@ -215,6 +216,7 @@ Blockchain.prototype.getBlockAtHeight = function (height, cb) {
     var traverse = (err, block) => {
       if (err) return cb(err)
       if (block.height === height) return cb(null, block)
+      console.log(block, height)
       this.getBlock(block.next, traverse)
     }
     this.getBlock(indexHash, traverse)
@@ -308,12 +310,7 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
         this.getPath(previousTip, last, (err, path) => {
           if (err) return done(err, last)
           if (path.remove.length > 0) {
-            var first = { height: start.height + 1, header: headers[0] }
-            this.store.put(first, { best: true, prev: start }, (err) => {
-              if (err) return done(err)
-              this.emit('reorg', { path, tip: last })
-              done(null, last)
-            })
+            this._reorg(path, done)
             return
           }
           done(null, last)
@@ -324,6 +321,47 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
       done(null, last)
     })
   })
+}
+
+Blockchain.prototype._reorg = function (path, cb) {
+  // wait for db to finish committing if neccessary
+  if (this.store.committing) {
+    this.store.once('commit', () => this._reorg(path, cb))
+    return
+  }
+
+  // create new db transaction if there isn't one
+  if (!this.store.tx) this.store.createTx(false)
+
+  // iterate through the previous best fork, and unlink the blocks
+  var unlink = (i = 0) => {
+    if (i === path.remove.length) return link(path.fork)
+    var block = path.remove[i]
+    this.store.put(block, (err) => {
+      if (err) return cb(err)
+      unlink(i + 1)
+    })
+  }
+
+  // iterate through the new best fork, and link the blocks
+  // (and update height index)
+  var link = (prev, i = 0) => {
+    if (i === path.add.length) {
+      this.emit('reorg', { path, tip: prev })
+      return cb(null, prev)
+    }
+    var block = path.add[i]
+    this.store.put(block, {
+      best: true,
+      tip: i === path.add.length - 1,
+      prev
+    }, (err) => {
+      if (err) return cb(err)
+      link(block, i + 1)
+    })
+  }
+
+  unlink()
 }
 
 Blockchain.prototype._addHeader = function (prev, header, cb) {
