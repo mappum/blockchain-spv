@@ -175,4 +175,40 @@ test('reorgs', function (t) {
       }
     })
   })
+
+  t.test('reorg while stream initializes', function (t) {
+    var headers3 = []
+    var prev = headers[7]
+    for (var i = 0; i < 6; i++) {
+      prev = headers3[i] = utils.createBlock(prev, 2000)
+    }
+    var expected = [
+      { height: 12, header: chain.tip.header, add: false },
+      { height: 11, header: headers2[2], add: false },
+      { height: 10, header: headers2[1], add: false },
+      { height: 9, header: headers2[0], add: false },
+      { height: 9, header: headers3[0], add: true },
+      { height: 10, header: headers3[1], add: true },
+      { height: 11, header: headers3[2], add: true },
+      { height: 12, header: headers3[3], add: true },
+      { height: 13, header: headers3[4], add: true },
+      { height: 14, header: headers3[5], add: true }
+    ]
+    var hs = chain.createReadStream({ from: chain.tip.hash })
+    hs.on('data', function (block1) {
+      var block2 = expected.shift()
+      t.equal(block1.height, block2.height, 'correct height')
+      t.deepEqual(block1.header, block2.header, 'correct header')
+      t.equal(block1.add, block2.add, 'correct add/remove')
+      if (expected.length === 0) {
+        hs.end()
+      }
+    })
+    // reorg happens now, while stream is still initializing
+    // (the stream is checking to see if it is on a fork)
+    chain.addHeaders(headers3, function (err) {
+      t.error(err, 'no error')
+      t.end()
+    })
+  })
 })
