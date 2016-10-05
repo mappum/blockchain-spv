@@ -331,19 +331,9 @@ Blockchain.prototype._reorg = function (path, cb) {
   // create new db transaction if there isn't one
   if (!this.store.tx) this.store.createTx(false)
 
-  // iterate through the previous best fork, and unlink the blocks
-  var unlink = (i = 0) => {
-    if (i === path.remove.length) return link(path.fork)
-    var block = path.remove[i]
-    this.store.put(block, (err) => {
-      if (err) return cb(err)
-      unlink(i + 1)
-    })
-  }
-
-  // iterate through the new best fork, and link the blocks
-  // (and update height index)
-  var link = (prev, i = 0) => {
+  // iterate through the new best fork, and put the blocks again
+  // (this updates the links, height index, and tip)
+  var put = (prev, i = 0) => {
     if (i === path.add.length) {
       this.emit('reorg', { path, tip: prev })
       return cb(null, prev)
@@ -355,11 +345,10 @@ Blockchain.prototype._reorg = function (path, cb) {
       prev
     }, (err) => {
       if (err) return cb(err)
-      link(block, i + 1)
+      put(block, i + 1)
     })
   }
-
-  unlink()
+  put(path.fork)
 }
 
 Blockchain.prototype._addHeader = function (prev, header, cb) {
@@ -369,7 +358,7 @@ Blockchain.prototype._addHeader = function (prev, header, cb) {
     hash: header.getHash(),
     header: header
   }
-  // if prev has a "next" pointer, then it is in the best chain, so we
+  // if prev already has a "next" pointer, then this is a fork, so we
   // won't change it to point to this block (yet)
   var link = !prev.next
 
