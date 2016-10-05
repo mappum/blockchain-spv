@@ -9,7 +9,6 @@ var BlockStore = require('./blockStore.js')
 var HeaderStream = require('./headerStream.js')
 var assign = require('object-assign')
 if (!setImmediate) require('setimmediate')
-var { floor } = Math
 
 var storeClosedError = new Error('Store is closed')
 
