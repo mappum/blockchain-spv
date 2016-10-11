@@ -82,7 +82,7 @@ Blockchain.prototype._initStore = function (cb) {
     this.store.get(block.hash, (err) => {
       if (err && !err.notFound) return cb(err)
       if (this.closed || this.store.isClosed()) return cb(storeClosedError)
-      this.store.put(block, { commit: true }, cb)
+      this.store.put(block, { commit: true, best: true }, cb)
     })
   }
 
