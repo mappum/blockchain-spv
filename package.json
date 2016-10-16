@@ -20,7 +20,7 @@
   "author": "Matt Bell <mappum@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "async": "^1.5.2",
+    "async": "^2.1.2",
     "bitcoin-util": "^2.0.0",
     "bitcoinjs-lib": "^2.2.0",
     "buffer-reverse": "^1.0.1",
