@@ -422,3 +422,9 @@ Blockchain.prototype.validProof = function (header, cb) {
 Blockchain.prototype.maxTarget = function () {
   return u.expandTarget(this.params.genesisHeader.bits)
 }
+
+Blockchain.prototype.esimatedChainHeight = function () {
+  var elapsed = (Date.now() / 1000) - this.tip.header.timestamp
+  var blocks = Math.round(elapsed / this.params.targetSpacing)
+  return this.tip.height + blocks
+}
