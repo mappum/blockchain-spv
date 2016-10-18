@@ -13,6 +13,7 @@ function HeaderStream (chain, opts) {
   opts = opts || {}
   this.chain = chain
   this.start = this.cursor = opts.from || chain.genesis.hash
+  this.sync = opts.sync != null ? opts.sync : true
 
   this.paused = false
   this.ended = false
@@ -35,7 +36,7 @@ HeaderStream.prototype._next = function () {
 
   // we reached end of chain, wait for new tip
   if (!this.cursor) {
-    this.chain.once('tip', (block) => {
+    var getPath = (block) => {
       this.chain.getPath(this.lastBlock, block, (err, path) => {
         if (err) return this.emit('error', err)
         // reorg handling (remove blocks to get to new fork)
@@ -43,6 +44,10 @@ HeaderStream.prototype._next = function () {
         this.paused = false
         setImmediate(this._next.bind(this))
       })
+    }
+    this.chain.once('tip', (block) => {
+      if (!this.sync) return getPath(block)
+      this.chain.once('commit', () => getPath(block))
     })
     return
   }

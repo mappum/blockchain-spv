@@ -182,11 +182,7 @@ Blockchain.prototype.getPathToTip = function (from, cb) {
   this.getPath(from, this.tip, cb)
 }
 
-Blockchain.prototype.getBlock = function (hash, opts, cb) {
-  if (typeof opts === 'function') {
-    cb = opts
-    opts = {}
-  }
+Blockchain.prototype.getBlock = function (hash, cb) {
   if (!Buffer.isBuffer(hash)) {
     return cb(new Error('"hash" must be a Buffer'))
   }
@@ -290,11 +286,17 @@ Blockchain.prototype.addHeaders = function (headers, cb) {
     if (err) this.emit('headerError', err)
     else this.emit('headers', headers)
     this.adding = false
-    this.store.commit((err2) => cb(err || err2, last))
+    this.store.commit((err2) => {
+      if (err || err2) return cb(err || err2)
+      this.emit('commit', headers)
+      cb(null, last)
+    })
   }
 
   this.getBlock(headers[0].prevHash, (err, start) => {
-    if (err && err.name === 'NotFoundError') return done(new Error('Block does not connect to chain'))
+    if (err && err.notFound) {
+      return done(new Error('Block does not connect to chain'))
+    }
     if (err) return done(err)
     start.hash = start.header.getHash()
 
