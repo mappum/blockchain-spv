@@ -20,6 +20,11 @@ var db = levelup('bitcoin.chain', { db: require('memdown') })
 // create blockchain
 var Blockchain = require('blockchain-spv')
 var chain = new Blockchain(params, db)
+
+// wait for the blockchain to be ready
+chain.on('ready', function () {
+  // use the blockchain
+}
 ```
 
 `Blockchain` stores and verifies block headers, and does SPV (lite client) verification. It is compatible with Bitcoin and Bitcoin-derived blockchains.
@@ -32,6 +37,8 @@ Creates an SPV `Blockchain` which stores and verifies block headers.
 `params` should be the blockchain parameters for the blockchain you wish to use. Parameters for Bitcoin are available at `require('webcoin-bitcoin').blockchain`. For more info about params you can use, see the [Parameters](#parameters) section.
 
 `db` should be a [`LevelUp`](https://github.com/Level/levelup) instance where block data will be stored. The db should not be shared with another Blockchain (if you need to, use [`level-sublevel`](https://github.com/dominictarr/level-sublevel) to create a sub-section of your db).
+
+Make sure to wait for the `ready` event before using the blockchain.
 
 ----
 #### `chain.addHeaders(headers, callback)`
