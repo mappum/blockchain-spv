@@ -79,8 +79,9 @@ Blockchain.prototype._initialize = function () {
 
 Blockchain.prototype._initStore = function (cb) {
   var putIfNotFound = (block) => (cb) => {
-    this.store.get(block.hash, (err) => {
+    this.store.get(block.hash, (err, found) => {
       if (err && !err.notFound) return cb(err)
+      if (found) return cb() // skip if already stored
       if (this.closed || this.store.isClosed()) return cb(storeClosedError)
       this.store.put(block, { commit: true, best: true }, cb)
     })
@@ -202,7 +203,11 @@ Blockchain.prototype.getBlockAtTime = function (time, cb) {
 }
 
 Blockchain.prototype.getBlockAtHeight = function (height, cb) {
-  if (height > this.tip.height) return cb(new Error('height is higher than tip'))
+  if (height > this.tip.height) {
+    let err = new Error('height is higher than tip')
+    err.notFound = true
+    return cb(err)
+  }
   if (height < 0) return cb(new Error('height must be >= 0'))
 
   this.store.getIndex(height, (err, indexHash) => {
@@ -366,7 +371,7 @@ Blockchain.prototype._addHeader = function (prev, header, cb) {
 
   var put = () => {
     var tip = height > this.tip.height
-    this._put({ header: header, height: height }, { tip: tip, prev: prev, link: link }, (err) => {
+    this._put({ header, height }, { tip, prev, link }, (err) => {
       if (err) return cb(err)
       this.emit('block', block)
       this.emit(`block:${block.hash.toString('base64')}`, block)
