@@ -29,7 +29,7 @@
     "inherits": "^2.0.1",
     "level-transactions": "^1.5.3",
     "object-assign": "^4.1.0",
-    "setimmediate": "^1.0.4",
+    "setimmediate": "^1.0.5",
     "varstruct": "^5.1.0",
     "varuint-bitcoin": "^1.0.4"
   },
