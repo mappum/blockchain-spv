@@ -42,13 +42,15 @@ var Blockchain = module.exports = function (params, db, opts) {
   }
 
   if (params.checkpoints && !opts.ignoreCheckpoints) {
-    var lastCheckpoint = params.checkpoints[params.checkpoints.length - 1]
-    this.checkpoint = {
-      height: lastCheckpoint.height,
-      header: blockFromObject(lastCheckpoint.header)
-    }
-    this.checkpoint.hash = this.checkpoint.header.getHash()
-    this.tip = this.checkpoint
+    this.checkpoints = params.checkpoints.map((block) => {
+      var header = blockFromObject(block.header)
+      return {
+        height: block.height,
+        header: header,
+        hash: header.getHash()
+      }
+    })
+    this.tip = this.checkpoints[this.checkpoints.length - 1]
   }
 
   this.ready = false
@@ -88,7 +90,11 @@ Blockchain.prototype._initStore = function (cb) {
   }
 
   var tasks = [ putIfNotFound(this.genesis) ]
-  if (this.checkpoint) tasks.push(putIfNotFound(this.checkpoint))
+  if (this.checkpoints) {
+    this.checkpoints.forEach((block) => {
+      tasks.push(putIfNotFound(block))
+    })
+  }
   async.parallel(tasks, cb)
 }
 
