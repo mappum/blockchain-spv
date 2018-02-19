@@ -5,52 +5,11 @@ let { types } = require('bitcoin-protocol')
 let createHash = require('create-hash')
 let BN = require('bn.js')
 
-function sha256 (data) {
-  return createHash('sha256').update(data).digest()
-}
-
-function sha256d (data) {
-  return sha256(sha256(data))
-}
-
-function getHeaderHash (header) {
-  let bytes = types.header.encode(header)
-  return sha256d(bytes)
-}
-
-function calculateTarget (timespan, prevTarget) {
-  // bound adjustment so attackers can't use an extreme timespan
-  timespan = Math.max(timespan, targetTimespan / 4)
-  timespan = Math.min(timespan, targetTimespan * 4)
-
-  // target = prevTarget * timespan / targetTimespan
-  let targetBn = new BN(prevTarget.toString('hex'), 'hex')
-  targetBn.imuln(timespan)
-  targetBn.idivn(targetTimespan)
-
-  // target can't be higher than maxTarget
-  if (targetBn.cmp(maxTargetBn) === 1) {
-    return maxTarget
-  }
-
-  // convert target to Buffer
-  let targetHex = target.toString('hex')
-  targetHex = repeat('0', 64 - hex.length) + targetHex
-  let target = new Buffer(hex, 'hex')
-  return target
-}
-
-// let chain = new Blockchain({
-//   start: { ... },
-//   store: []
-// })
-// chain.add(headers)
-// // (throws if on a fork which is not longer than current best chain)
-
 const retargetInterval = 2016
 const targetSpacing = 10 * 60 // 10 minutes
 const targetTimespan = retargetInterval * targetSpacing
-// TODO: const maxTarget = ?
+const maxTimeIncrease = 4 * 60 // 4 hours
+const maxTarget = expandTarget(0x1d00ffff)
 const maxTargetBn = new BN(maxTarget.toString('hex'), 'hex')
 
 class Blockchain extends EventEmitter {
@@ -88,8 +47,7 @@ class Blockchain extends EventEmitter {
 
     // make sure headers are connected to each other and our chain,
     // and have valid PoW, timestamps, etc.
-    let prev = this.get(headers[0].height - 1)
-    this.verifyHeaders(headers, prev)
+    this.verifyHeaders(headers)
 
     // remove any blocks which got reorged away
     this.store.splice(this.store.length - toRemove.length, toRemove.length)
@@ -107,9 +65,15 @@ class Blockchain extends EventEmitter {
     this.emit('headers', headers)
   }
 
-  get (height) {
-    let index = height - this.store[0].height
-    let header = this.store[index]
+  get (height, headers) {
+    // if array is not given or not in range,
+    // get headers from store
+    if (headers == null || height < headers[0].height) {
+      headers = this.store
+    }
+
+    let index = height - headers[0].height
+    let header = headers[index]
     if (header == null) {
       throw Error('Header not found')
     }
@@ -120,28 +84,43 @@ class Blockchain extends EventEmitter {
     return store[store.length - 1].height
   }
 
-  verifyHeaders (headers, prev) {
+  verifyHeaders (headers) {
     for (let header of headers) {
+      let prev = this.get(header.height - 1, headers)
+
       if (header.height !== prev.height + 1) {
         throw Error('Expected height to be one higher than previous')
       }
 
-      if (!header.prevHash.equals(getHeaderHash(prev)) {
+      if (!header.prevHash.equals(getHash(prev)) {
         throw Error('Header not connected to previous')
       }
 
-      // TODO: time must be > than median of last 10 timestamps
-      // TODO: time must be within a certain bound of prev timestamp,
-      //       to prevent attacks where an attacker uses a time far in the future
-      //       in order to bring down the difficulty and create a longer chain
+      // time must be greater than median of last 10 timestamps
+      let prevTen = []
+      for (let i = 10; i > 0; i--) {
+        prevTen.push(this.get(header.height - i, headers))
+      }
+      prevTen = prevTen.map(({ timestamp }) => timestamp).sort()
+      let medianTimestamp = prevTen[Math.floor(prevTen.length / 2)]
+      if (header.timestamp <= medianTimestamp) {
+        throw Error('Timestamp is not greater than median of previous 10 timestamps')
+      }
 
-      let shouldRetarget = header.height % 2016 === 0
+      // time must be within a certain bound of prev timestamp,
+      // to prevent attacks where an attacker uses a time far in the future
+      // in order to bring down the difficulty and create a longer chain
+      if (Math.abs(header.timestamp - prev.timestamp) > maxTimeIncrease) {
+        throw Error('Timestamp is too far ahead of previous timestamp')
+      }
+
+      let shouldRetarget = header.height % retargetInterval === 0
       let prevTarget = expandTarget(prev.bits)
       let target
       if (shouldRetarget) {
-        // TODO: timespan
-        //let timespan = header.timestamp - prevRetargetTime
-        //target = calculateTarget(timespan, prevTarget)
+        let prevRetarget = this.get(header.height - retargetInterval, headers)
+        let timespan = header.timestamp - prevRetarget.timestamp
+        target = calculateTarget(timespan, prevTarget)
       } else {
         if (header.bits !== prev.bits) {
           throw Error('Unexpected difficulty change')
@@ -149,12 +128,44 @@ class Blockchain extends EventEmitter {
         target = prevTarget
       }
 
-      let hash = getHeaderHash(header).reverse()
+      let hash = getHash(header).reverse()
       if (hash.cmp(target) === 1) {
         throw Error('Hash is above target')
       }
-
-      prev = header
     }
   }
+}
+
+module.exports = old(Blockchain)
+module.exports.getHash = getHash
+
+function sha256 (data) {
+  return createHash('sha256').update(data).digest()
+}
+
+function getHash (header) {
+  let bytes = types.header.encode(header)
+  return sha256(sha256(bytes))
+}
+
+function calculateTarget (timespan, prevTarget) {
+  // bound adjustment so attackers can't use an extreme timespan
+  timespan = Math.max(timespan, targetTimespan / 4)
+  timespan = Math.min(timespan, targetTimespan * 4)
+
+  // target = prevTarget * timespan / targetTimespan
+  let targetBn = new BN(prevTarget.toString('hex'), 'hex')
+  targetBn.imuln(timespan)
+  targetBn.idivn(targetTimespan)
+
+  // target can't be higher than maxTarget
+  if (targetBn.cmp(maxTargetBn) === 1) {
+    return maxTarget
+  }
+
+  // convert target to Buffer
+  let targetHex = target.toString('hex')
+  targetHex = repeat('0', 64 - hex.length) + targetHex
+  let target = new Buffer(hex, 'hex')
+  return target
 }
