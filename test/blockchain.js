@@ -1,22 +1,5 @@
 var test = require('tape')
-var u = require('bitcoin-util')
-var levelup = require('levelup')
-var memdown = require('memdown')
-var params = require('webcoin-bitcoin').blockchain
 var Blockchain = require('../lib/blockchain.js')
-var utils = require('./utils.js')
-
-function deleteStore (store, cb) {
-  memdown.clearGlobalStore()
-  cb()
-}
-
-function endStore (store, t) {
-  store.close(function (err) {
-    t.error(err)
-    deleteStore(store, t.end)
-  })
-}
 
 test('create blockchain instance', function (t) {
   t.test('no params', function (t) {

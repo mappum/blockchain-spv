@@ -5,39 +5,43 @@ let { types } = require('bitcoin-protocol')
 let createHash = require('create-hash')
 let BN = require('bn.js')
 
-const retargetInterval = 2016
-const targetSpacing = 10 * 60 // 10 minutes
-const targetTimespan = retargetInterval * targetSpacing
-const maxTimeIncrease = 4 * 60 // 4 hours
-const maxTarget = expandTarget(0x1d00ffff)
-const maxTargetBn = new BN(maxTarget.toString('hex'), 'hex')
+let retargetInterval = 2016
+let targetSpacing = 10 * 60 // 10 minutes
+let targetTimespan = retargetInterval * targetSpacing
+let maxTimeIncrease = 8 * 60 * 1000 // 4 hours
+let maxTarget = expandTarget(0x1d00ffff)
+let maxTargetBn = new BN(maxTarget.toString('hex'), 'hex')
 
 class Blockchain extends EventEmitter {
-  constructor (opts) {
+  constructor (opts = {}) {
+    super()
+
     this.store = opts.store || []
 
     // initialize with starting header if the store is empty
-    if (store.length === 0) {
-      if (opts.tip == null) {
+    if (this.store.length === 0) {
+      if (opts.start == null) {
         throw Error('Must specify starting header')
       }
-      store.push(opts.start)
-      // TODO: validate block
+      this.store.push(opts.start)
+    }
+
+    // index blocks by hash
+    this.index = {}
+    for (let header of this.store) {
+      let hexHash = getHash(header).toString('hex')
+      this.index[hexHash] = header
     }
   }
 
-  add (headers) {
-    if (!Array.isArray(headers)) {
-      throw Error('Must be an array of header objects')
-    }
-
+  add (...headers) {
     // make sure first header isn't higher than our tip + 1
     if (headers[0].height > this.height() + 1) {
       throw Error('Start of headers is ahead of chain tip')
     }
 
     // make sure last header is higher than current tip
-    if (headers[headers.length - 1].height <= this.height) {
+    if (headers[headers.length - 1].height <= this.height()) {
       throw Error('New tip is not higher than current tip')
     }
 
@@ -54,6 +58,10 @@ class Blockchain extends EventEmitter {
 
     // add the headers
     this.store.push(...headers)
+    for (let header of headers) {
+      let hexHash = getHash(header).toString('hex')
+      this.index[hexHash] = header
+    }
 
     // emit events
     if (toRemove.length > 0) {
@@ -65,7 +73,7 @@ class Blockchain extends EventEmitter {
     this.emit('headers', headers)
   }
 
-  get (height, headers) {
+  getByHeight (height, headers) {
     // if array is not given or not in range,
     // get headers from store
     if (headers == null || height < headers[0].height) {
@@ -80,29 +88,38 @@ class Blockchain extends EventEmitter {
     return header
   }
 
+  getByHash (hash) {
+    let header = this.index[hash.toString('hex')]
+    if (header == null) {
+      throw Error('Header not found')
+    }
+    return header
+  }
+
   height () {
-    return store[store.length - 1].height
+    return this.store[this.store.length - 1].height
   }
 
   verifyHeaders (headers) {
     for (let header of headers) {
-      let prev = this.get(header.height - 1, headers)
+      let prev = this.getByHeight(header.height - 1, headers)
 
       if (header.height !== prev.height + 1) {
         throw Error('Expected height to be one higher than previous')
       }
 
-      if (!header.prevHash.equals(getHash(prev)) {
+      if (!header.prevHash.equals(getHash(prev))) {
         throw Error('Header not connected to previous')
       }
 
       // time must be greater than median of last 10 timestamps
-      let prevTen = []
-      for (let i = 10; i > 0; i--) {
-        prevTen.push(this.get(header.height - i, headers))
+      let prevEleven = []
+      let count = Math.min(11, header.height - 1)
+      for (let i = count; i > 0; i--) {
+        prevEleven.push(this.getByHeight(header.height - i, headers))
       }
-      prevTen = prevTen.map(({ timestamp }) => timestamp).sort()
-      let medianTimestamp = prevTen[Math.floor(prevTen.length / 2)]
+      prevEleven = prevEleven.map(({ timestamp }) => timestamp).sort()
+      let medianTimestamp = prevEleven[5]
       if (header.timestamp <= medianTimestamp) {
         throw Error('Timestamp is not greater than median of previous 10 timestamps')
       }
@@ -111,6 +128,7 @@ class Blockchain extends EventEmitter {
       // to prevent attacks where an attacker uses a time far in the future
       // in order to bring down the difficulty and create a longer chain
       if (Math.abs(header.timestamp - prev.timestamp) > maxTimeIncrease) {
+              console.log(header, prev)
         throw Error('Timestamp is too far ahead of previous timestamp')
       }
 
@@ -118,7 +136,7 @@ class Blockchain extends EventEmitter {
       let prevTarget = expandTarget(prev.bits)
       let target
       if (shouldRetarget) {
-        let prevRetarget = this.get(header.height - retargetInterval, headers)
+        let prevRetarget = this.getByHeight(header.height - retargetInterval, headers)
         let timespan = header.timestamp - prevRetarget.timestamp
         target = calculateTarget(timespan, prevTarget)
       } else {
@@ -129,7 +147,7 @@ class Blockchain extends EventEmitter {
       }
 
       let hash = getHash(header).reverse()
-      if (hash.cmp(target) === 1) {
+      if (hash.compare(target) === 1) {
         throw Error('Hash is above target')
       }
     }
@@ -164,8 +182,8 @@ function calculateTarget (timespan, prevTarget) {
   }
 
   // convert target to Buffer
-  let targetHex = target.toString('hex')
-  targetHex = repeat('0', 64 - hex.length) + targetHex
-  let target = new Buffer(hex, 'hex')
+  let targetHex = targetBn.toString('hex')
+  targetHex = '0'.repeat(64 - targetHex.length) + targetHex
+  let target = new Buffer(targetHex, 'hex')
   return target
 }
