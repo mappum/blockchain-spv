@@ -59,6 +59,7 @@ class Blockchain extends EventEmitter {
     // add the headers
     this.store.push(...headers)
     for (let header of headers) {
+      // index headers by hash
       let hexHash = getHash(header).toString('hex')
       this.index[hexHash] = header
     }
@@ -73,15 +74,19 @@ class Blockchain extends EventEmitter {
     this.emit('headers', headers)
   }
 
-  getByHeight (height, headers) {
-    // if array is not given or not in range,
-    // get headers from store
-    if (headers == null || height < headers[0].height) {
-      headers = this.store
+  getByHeight (height, extra) {
+    // `extra` is an optional array of headers,
+    // if the height is in `extra`'s range, it will
+    // get the header from there instead of the store
+
+    // if extra is not given or not in range,
+    // get header from store
+    if (extra == null || height < extra[0].height) {
+      extra = this.store
     }
 
-    let index = height - headers[0].height
-    let header = headers[index]
+    let index = height - extra[0].height
+    let header = extra[index]
     if (header == null) {
       throw Error('Header not found')
     }
@@ -132,20 +137,26 @@ class Blockchain extends EventEmitter {
         throw Error('Timestamp is too far ahead of previous timestamp')
       }
 
+      // handle difficulty adjustments
       let shouldRetarget = header.height % retargetInterval === 0
       let prevTarget = expandTarget(prev.bits)
       let target
       if (shouldRetarget) {
+        // make sure the retarget happened correctly
         let prevRetarget = this.getByHeight(header.height - retargetInterval, headers)
         let timespan = header.timestamp - prevRetarget.timestamp
         target = calculateTarget(timespan, prevTarget)
       } else {
+        // make sure the difficulty didn't change
         if (header.bits !== prev.bits) {
           throw Error('Unexpected difficulty change')
         }
         target = prevTarget
       }
 
+      // check PoW
+      // bitcoin protocol uses the hash in
+      // little-endian (reversed)
       let hash = getHash(header).reverse()
       if (hash.compare(target) === 1) {
         throw Error('Hash is above target')
@@ -166,6 +177,9 @@ function getHash (header) {
   return sha256(sha256(bytes))
 }
 
+// calculates new PoW target hash/difficulty based
+// on time since previous adjustment,
+// and the previous targert
 function calculateTarget (timespan, prevTarget) {
   // bound adjustment so attackers can't use an extreme timespan
   timespan = Math.max(timespan, targetTimespan / 4)
@@ -183,7 +197,7 @@ function calculateTarget (timespan, prevTarget) {
 
   // convert target to Buffer
   let targetHex = targetBn.toString('hex')
-  targetHex = '0'.repeat(64 - targetHex.length) + targetHex
+  targetHex = targetHex.padStart(64, '0')
   let target = new Buffer(targetHex, 'hex')
   return target
 }
