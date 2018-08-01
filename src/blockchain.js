@@ -1,16 +1,18 @@
-let EventEmitter = require('events')
-let old = require('old')
-let { expandTarget } = require('bitcoin-util')
-let { types } = require('bitcoin-protocol')
-let createHash = require('create-hash')
-let BN = require('bn.js')
+'use strict'
 
-let retargetInterval = 2016
-let targetSpacing = 10 * 60 // 10 minutes
-let targetTimespan = retargetInterval * targetSpacing
-let maxTimeIncrease = 8 * 60 * 1000 // 4 hours
-let maxTarget = expandTarget(0x1d00ffff)
-let maxTargetBn = new BN(maxTarget.toString('hex'), 'hex')
+const EventEmitter = require('events')
+const old = require('old')
+const { expandTarget } = require('bitcoin-util')
+const { types } = require('bitcoin-protocol')
+const createHash = require('create-hash')
+const BN = require('bn.js')
+
+const retargetInterval = 2016
+const targetSpacing = 10 * 60 // 10 minutes
+const targetTimespan = retargetInterval * targetSpacing
+const maxTimeIncrease = 8 * 60 * 1000 // 4 hours
+const maxTarget = expandTarget(0x1d00ffff)
+const maxTargetBn = new BN(maxTarget.toString('hex'), 'hex')
 
 class Blockchain extends EventEmitter {
   constructor (opts = {}) {
