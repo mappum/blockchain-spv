@@ -57,6 +57,12 @@ class Blockchain extends EventEmitter {
       throw Error('New tip is not higher than current tip')
     }
 
+    // make sure we aren't reorging longer than max reorg depth
+    // (otherwise longest chain isn't necessarily most-work chain)
+    if (headers[0].height < this.height() - maxReorgDepth) {
+      throw Error(`Reorg deeper than ${maxReorgDepth} blocks`)
+    }
+
     // get list of blocks which will be reorged (usually none)
     let index = headers[0].height - this.store[0].height
     let toRemove = this.store.slice(index)
