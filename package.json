@@ -4,8 +4,9 @@
   "description": "Stores blockchain headers and verifies transactions with SPV",
   "main": "index.js",
   "scripts": {
-    "test": "depcheck --ignores=babel-preset-es2015,airtap && standard src/*.js test/*.js && nyc tape test/*.js | faucet && nyc report",
-    "test-browser": "npm run build && test/browser.sh && npm run source",
+    "pretest": "depcheck --ignores=babel-preset-es2015,airtap && standard src/*.js test/*.js",
+    "test": "npm run pretest && nyc tape test/*.js | faucet && nyc report",
+    "test-browser": "npm run pretest && npm run build && test/browser.sh && npm run source",
     "build": "rm -rf lib && babel --presets es2015 src -d lib",
     "source": "rm -rf lib && ln -s src lib",
     "prepublish": "npm run build",

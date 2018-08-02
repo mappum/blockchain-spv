@@ -5,10 +5,10 @@ if [ $BROWSER ]; then
     --browser-name $BROWSER \
     --browser-version latest \
     --loopback airtap.local \
-    test/*.js
+    -- test/*.js
 else
   airtap \
     --local \
     --open \
-    test/*.js
+    -- test/*.js
 fi
