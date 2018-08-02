@@ -5,7 +5,6 @@ if [ $BROWSER ]; then
     --browser-name $BROWSER \
     --browser-version latest \
     --ui tape \
-    --tunnel ngrok \
     -- test/*.js
 else
   zuul --local --ui tape -- test/*.js
