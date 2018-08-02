@@ -46,7 +46,7 @@ class Blockchain extends EventEmitter {
     }
   }
 
-  add (...headers) {
+  add (headers) {
     // make sure first header isn't higher than our tip + 1
     if (headers[0].height > this.height() + 1) {
       throw Error('Start of headers is ahead of chain tip')
@@ -74,11 +74,11 @@ class Blockchain extends EventEmitter {
     }
 
     // add the headers
-    this.store.push(...headers)
+    // this.store.push(...headers)
+    // XXX
     for (let header of headers) {
-      // index headers by hash
-      let hexHash = getHash(header).toString('hex')
-      this.index[hexHash] = header
+      this.store[this.store.length] = header
+    }
 
     // index headers by hash
     if (this.indexed) {
