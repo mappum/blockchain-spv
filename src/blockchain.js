@@ -6,19 +6,27 @@ const { expandTarget } = require('bitcoin-util')
 const { types } = require('bitcoin-protocol')
 const createHash = require('create-hash')
 const BN = require('bn.js')
+const MapDeque = require('map-deque')
 
 const retargetInterval = 2016
 const targetSpacing = 10 * 60 // 10 minutes
 const targetTimespan = retargetInterval * targetSpacing
-const maxTimeIncrease = 8 * 60 * 1000 // 4 hours
+const maxTimeIncrease = 8 * 60 * 1000 // 8 hours
 const maxTarget = expandTarget(0x1d00ffff)
 const maxTargetBn = new BN(maxTarget.toString('hex'), 'hex')
+const maxReorgDepth = retargetInterval
+
+// TODO: keep track of chain work so we can use most-work chain
+//       instead of longest chain. not a security flaw right now
+//       because we don't allow reorgs larger than the retarget
+//       interval.
 
 class Blockchain extends EventEmitter {
   constructor (opts = {}) {
     super()
 
     this.store = opts.store || []
+    this.indexed = opts.indexed
 
     // initialize with starting header if the store is empty
     if (this.store.length === 0) {
@@ -28,11 +36,13 @@ class Blockchain extends EventEmitter {
       this.store.push(opts.start)
     }
 
-    // index blocks by hash
-    this.index = {}
-    for (let header of this.store) {
-      let hexHash = getHash(header).toString('hex')
-      this.index[hexHash] = header
+    if (this.indexed) {
+      // index blocks by hash
+      this.index = new MapDeque()
+      for (let header of this.store) {
+        let hexHash = getHash(header).toString('hex')
+        this.index.push(hexHash, header)
+      }
     }
   }
 
@@ -57,6 +67,11 @@ class Blockchain extends EventEmitter {
 
     // remove any blocks which got reorged away
     this.store.splice(this.store.length - toRemove.length, toRemove.length)
+    if (this.indexed) {
+      for (let i = 0; i < toRemove.length; i++) {
+        this.index.pop()
+      }
+    }
 
     // add the headers
     this.store.push(...headers)
@@ -64,6 +79,16 @@ class Blockchain extends EventEmitter {
       // index headers by hash
       let hexHash = getHash(header).toString('hex')
       this.index[hexHash] = header
+
+    // index headers by hash
+    if (this.indexed) {
+      for (let header of headers) {
+        let hexHash = getHash(header).toString('hex')
+        this.index.push(hexHash, header)
+        if (this.index.length > this.maxReorgDepth) {
+          this.index.shift()
+        }
+      }
     }
 
     // emit events
@@ -96,6 +121,9 @@ class Blockchain extends EventEmitter {
   }
 
   getByHash (hash) {
+    if (!this.indexed) {
+      throw Error('Indexing disabled, try instantiating with `indexed: true`')
+    }
     let header = this.index[hash.toString('hex')]
     if (header == null) {
       throw Error('Header not found')
@@ -119,7 +147,7 @@ class Blockchain extends EventEmitter {
         throw Error('Header not connected to previous')
       }
 
-      // time must be greater than median of last 10 timestamps
+      // time must be greater than median of last 11 timestamps
       let prevEleven = []
       let count = Math.min(11, header.height - 1)
       for (let i = count; i > 0; i--) {
@@ -135,7 +163,6 @@ class Blockchain extends EventEmitter {
       // to prevent attacks where an attacker uses a time far in the future
       // in order to bring down the difficulty and create a longer chain
       if (Math.abs(header.timestamp - prev.timestamp) > maxTimeIncrease) {
-              console.log(header, prev)
         throw Error('Timestamp is too far ahead of previous timestamp')
       }
 

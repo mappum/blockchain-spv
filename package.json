@@ -30,6 +30,7 @@
     "from2": "^2.1.1",
     "inherits": "^2.0.1",
     "level-transactions": "^1.5.3",
+    "map-deque": "0.0.2",
     "object-assign": "^4.1.0",
     "setimmediate": "^1.0.4",
     "varstruct": "^5.1.0",
