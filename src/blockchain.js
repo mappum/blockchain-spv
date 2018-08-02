@@ -85,7 +85,7 @@ class Blockchain extends EventEmitter {
       for (let header of headers) {
         let hexHash = getHash(header).toString('hex')
         this.index.push(hexHash, header)
-        if (this.index.length > this.maxReorgDepth) {
+        if (this.index.length > maxReorgDepth) {
           this.index.shift()
         }
       }

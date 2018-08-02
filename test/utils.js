@@ -1,6 +1,5 @@
 'use strict'
 
-const bitcoinjs = require('bitcoinjs-lib')
 const u = require('bitcoin-util')
 const params = require('webcoin-bitcoin').blockchain
 
@@ -59,5 +58,5 @@ var defaultTestParams = {
 }
 
 exports.createTestParams = function (opts) {
-  return assign({}, params, defaultTestParams, opts)
+  return Object.assign({}, params, defaultTestParams, opts)
 }

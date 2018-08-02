@@ -1,3 +1,4 @@
-var test = require('tape')
-var Blockchain = require('../lib/blockchain.js')
+'use strict'
 
+// const test = require('tape')
+// const Blockchain = require('../lib/blockchain.js')
