@@ -8,7 +8,6 @@ env:
   - NODE=9
   - NODE=8
   - NODE=6
-  - NODE=4
   - BROWSER=chrome
   - BROWSER=firefox
   - BROWSER=safari
