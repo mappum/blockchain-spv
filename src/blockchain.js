@@ -130,7 +130,7 @@ class Blockchain extends EventEmitter {
     if (!this.indexed) {
       throw Error('Indexing disabled, try instantiating with `indexed: true`')
     }
-    let header = this.index[hash.toString('hex')]
+    let header = this.index.get(hash.toString('hex'))
     if (header == null) {
       throw Error('Header not found')
     }
