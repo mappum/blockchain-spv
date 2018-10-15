@@ -7,13 +7,9 @@
     "node": ">=8"
   },
   "scripts": {
-    "pretest": "depcheck --ignores=babel-preset-es2015,airtap && standard src/*.js test/*.js",
+    "pretest": "depcheck --ignores=airtap && standard src/*.js test/*.js",
     "test": "npm run pretest && nyc -r text -r html tape test/*.js | faucet && nyc report",
-    "test-browser": "npm run pretest && npm run build && test/browser.sh && npm run source",
-    "build": "rm -rf lib && babel --presets es2015 src -d lib",
-    "source": "rm -rf lib && ln -s src lib",
-    "prepublish": "npm run build",
-    "publish": "npm run source"
+    "test-browser": "npm run pretest && test/browser.sh"
   },
   "keywords": [
     "bitcoin",
@@ -34,15 +30,10 @@
   },
   "devDependencies": {
     "airtap": "^0.1.0",
-    "babel-cli": "^6.26.0",
-    "babel-preset-es2015": "^6.24.1",
     "faucet": "0.0.1",
     "nyc": "^13.0.1",
     "standard": "^7.0.0",
     "tape": "^4.9.1"
-  },
-  "directories": {
-    "test": "test"
   },
   "repository": {
     "type": "git",

@@ -1,7 +1,7 @@
 'use strict'
 
 const test = require('tape')
-const Blockchain = require('../lib/blockchain.js')
+const Blockchain = require('../src/blockchain.js')
 const {
   mine,
   createHeader,
@@ -20,8 +20,8 @@ const bitcoinGenesis = {
 }
 const bitcoinGenesisHash = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
 
-test('create Blockchain instance', function (t) {
-  t.test('with no args', function (t) {
+test('create Blockchain instance', (t) => {
+  t.test('with no args', (t) => {
     try {
       let chain = new Blockchain()
       t.undefined(chain)
@@ -31,14 +31,14 @@ test('create Blockchain instance', function (t) {
     t.end()
   })
 
-  t.test('with non-empty store', function (t) {
+  t.test('with non-empty store', (t) => {
     let store = [ bitcoinGenesis ]
     let chain = new Blockchain({ store })
     t.deepEquals(chain.getByHeight(0), bitcoinGenesis)
     t.end()
   })
 
-  t.test('with starting header', function (t) {
+  t.test('with starting header', (t) => {
     let chain = new Blockchain({ start: bitcoinGenesis })
     t.deepEquals(chain.getByHeight(0), bitcoinGenesis)
     t.end()
@@ -47,8 +47,8 @@ test('create Blockchain instance', function (t) {
   t.end()
 })
 
-test('getByHeight', function (t) {
-  t.test('out of range', function (t) {
+test('getByHeight', (t) => {
+  t.test('out of range', (t) => {
     let chain = new Blockchain({ start: bitcoinGenesis })
     try {
       chain.getByHeight(1)
@@ -65,7 +65,7 @@ test('getByHeight', function (t) {
     t.end()
   })
 
-  t.test('in range', function (t) {
+  t.test('in range', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     mine(chain, 10)
     t.deepEquals(chain.getByHeight(0), testGenesis)
@@ -73,7 +73,7 @@ test('getByHeight', function (t) {
     t.end()
   })
 
-  t.test('with extra', function (t) {
+  t.test('with extra', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     mine(chain, 10)
     let extra = mine(chain, 10, false)
@@ -84,7 +84,7 @@ test('getByHeight', function (t) {
     t.end()
   })
 
-  t.test('with forked extra', function (t) {
+  t.test('with forked extra', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     mine(chain, 10)
     let extra = mine(chain, 10, false)
@@ -107,8 +107,8 @@ test('getByHeight', function (t) {
   t.end()
 })
 
-test('getByHash', function (t) {
-  t.test('errors when not indexing', function (t) {
+test('getByHash', (t) => {
+  t.test('errors when not indexing', (t) => {
     let chain = new Blockchain({ start: bitcoinGenesis })
     try {
       chain.getByHash(bitcoinGenesisHash)
@@ -119,7 +119,7 @@ test('getByHash', function (t) {
     t.end()
   })
 
-  t.test('with string', function (t) {
+  t.test('with string', (t) => {
     let chain = new Blockchain({ start: bitcoinGenesis, indexed: true })
     t.deepEquals(
       chain.getByHash(bitcoinGenesisHash),
@@ -128,7 +128,7 @@ test('getByHash', function (t) {
     t.end()
   })
 
-  t.test('with Buffer', function (t) {
+  t.test('with Buffer', (t) => {
     let chain = new Blockchain({ start: bitcoinGenesis, indexed: true })
     t.deepEquals(
       chain.getByHash(Buffer.from(bitcoinGenesisHash, 'hex')),
@@ -137,7 +137,7 @@ test('getByHash', function (t) {
     t.end()
   })
 
-  t.test('for missing header', function (t) {
+  t.test('for missing header', (t) => {
     let chain = new Blockchain({ start: bitcoinGenesis, indexed: true })
     try {
       chain.getByHash('1234')
@@ -151,8 +151,8 @@ test('getByHash', function (t) {
   t.end()
 })
 
-test('add', function (t) {
-  t.test('with non-array', function (t) {
+test('add', (t) => {
+  t.test('with non-array', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     try {
       chain.add(123)
@@ -169,7 +169,7 @@ test('add', function (t) {
     t.end()
   })
 
-  t.test('with disconnected first header', function (t) {
+  t.test('with disconnected first header', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     mine(chain, 10)
     try {
@@ -183,7 +183,7 @@ test('add', function (t) {
   })
 
   // TODO: this rule won't apply when we use highest-work chain instead of longest
-  t.test('with shorter fork', function (t) {
+  t.test('with shorter fork', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     mine(chain, 10)
     let headers = mine(chain, 10, false)
@@ -198,7 +198,7 @@ test('add', function (t) {
   })
 
   // TODO: this rule won't apply when we use highest-work chain instead of longest
-  t.test('with long reorg', function (t) {
+  t.test('with long reorg', (t) => {
     let chain = new Blockchain({
       start: testGenesis,
       maxTarget: testMaxTarget
@@ -215,7 +215,7 @@ test('add', function (t) {
     t.end()
   })
 
-  t.test('with incorrect prevHash', function (t) {
+  t.test('with incorrect prevHash', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     mine(chain, 10)
 
@@ -240,7 +240,7 @@ test('add', function (t) {
     t.end()
   })
 
-  t.test('with skipped header', function (t) {
+  t.test('with skipped header', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     mine(chain, 10)
     let headers = mine(chain, 10, false)
@@ -254,7 +254,7 @@ test('add', function (t) {
     t.end()
   })
 
-  t.test('with timestamp below median of prev 11', function (t) {
+  t.test('with timestamp below median of prev 11', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     mine(chain, 10)
     let headers = mine(chain, 10, false)
@@ -268,7 +268,7 @@ test('add', function (t) {
     t.end()
   })
 
-  t.test('with timestamp too far ahead of previous', function (t) {
+  t.test('with timestamp too far ahead of previous', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     mine(chain, 10)
     let headers = mine(chain, 10, false)
@@ -282,7 +282,7 @@ test('add', function (t) {
     t.end()
   })
 
-  t.test('with incorrect retarget', function (t) {
+  t.test('with incorrect retarget', (t) => {
     let chain = new Blockchain({ start: testGenesis, maxTarget: testMaxTarget })
     let headers = mine(chain, 2016, false)
     headers[2015].bits += 1
@@ -295,7 +295,7 @@ test('add', function (t) {
     t.end()
   })
 
-  t.test('with unexpected difficulty change', function (t) {
+  t.test('with unexpected difficulty change', (t) => {
     let chain = new Blockchain({ start: testGenesis, maxTarget: testMaxTarget })
     let headers = mine(chain, 10, false)
     headers[5].bits += 1
@@ -308,7 +308,7 @@ test('add', function (t) {
     t.end()
   })
 
-  t.test('with invalid proof-of-work', function (t) {
+  t.test('with invalid proof-of-work', (t) => {
     let chain = new Blockchain({ start: testGenesis })
     let header = createHeader(testGenesis, null, null, false)
     try {
@@ -320,7 +320,7 @@ test('add', function (t) {
     t.end()
   })
 
-  t.test('with valid reorg', function (t) {
+  t.test('with valid reorg', (t) => {
     let store = []
     let chain = new Blockchain({ start: testGenesis, store })
     let toAdd = mine(chain, 10, false)

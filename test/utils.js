@@ -1,7 +1,7 @@
 'use strict'
 
 const u = require('bitcoin-util')
-const { getHash } = require('../lib/blockchain.js')
+const { getHash } = require('../src/blockchain.js')
 
 const testMaxTarget = Buffer.from('7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'hex')
 
