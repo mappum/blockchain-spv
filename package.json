@@ -3,6 +3,9 @@
   "version": "3.1.6",
   "description": "Stores blockchain headers and verifies transactions with SPV",
   "main": "index.js",
+  "engines": {
+    "node": ">=8"
+  },
   "scripts": {
     "pretest": "depcheck --ignores=babel-preset-es2015,airtap && standard src/*.js test/*.js",
     "test": "npm run pretest && nyc -r text -r html tape test/*.js | faucet && nyc report",
