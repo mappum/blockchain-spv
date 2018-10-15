@@ -36,8 +36,7 @@
     "faucet": "0.0.1",
     "nyc": "^13.0.1",
     "standard": "^7.0.0",
-    "tape": "^4.9.1",
-    "webcoin-bitcoin": "^3.0.0"
+    "tape": "^4.9.1"
   },
   "directories": {
     "test": "test"
