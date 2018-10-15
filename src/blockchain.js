@@ -50,6 +50,11 @@ class Blockchain extends EventEmitter {
   }
 
   add (headers) {
+    // ensure 'headers' is an array
+    if (!Array.isArray(headers)) {
+      throw Error('Argument must be an array of block headers')
+    }
+
     // make sure first header isn't higher than our tip + 1
     if (headers[0].height > this.height() + 1) {
       throw Error('Start of headers is ahead of chain tip')
@@ -83,11 +88,7 @@ class Blockchain extends EventEmitter {
     }
 
     // add the headers
-    // this.store.push(...headers)
-    // XXX
-    for (let header of headers) {
-      this.store[this.store.length] = header
-    }
+    this.store.push(...headers)
 
     // index headers by hash
     if (this.indexed) {
@@ -157,6 +158,7 @@ class Blockchain extends EventEmitter {
       }
 
       // time must be greater than median of last 11 timestamps
+      // TODO: optimize by persisting arrays of sorted timestamps and sequential headers
       let prevEleven = []
       let count = Math.min(11, header.height - 1)
       for (let i = count; i > 0; i--) {
@@ -165,7 +167,7 @@ class Blockchain extends EventEmitter {
       prevEleven = prevEleven.map(({ timestamp }) => timestamp).sort()
       let medianTimestamp = prevEleven[5]
       if (header.timestamp <= medianTimestamp) {
-        throw Error('Timestamp is not greater than median of previous 10 timestamps')
+        throw Error('Timestamp is not greater than median of previous 11 timestamps')
       }
 
       // time must be within a certain bound of prev timestamp,
@@ -209,7 +211,9 @@ class Blockchain extends EventEmitter {
 }
 
 module.exports = old(Blockchain)
-module.exports.getHash = getHash
+Object.assign(module.exports, {
+  getHash
+})
 
 function sha256 (data) {
   return createHash('sha256').update(data).digest()
