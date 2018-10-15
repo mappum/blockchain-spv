@@ -3,7 +3,7 @@
 const u = require('bitcoin-util')
 const { getHash } = require('../lib/blockchain.js')
 
-const maxTarget = Buffer.from('7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'hex')
+const testMaxTarget = Buffer.from('7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', 'hex')
 
 function isValidProofOfWork (header) {
   let target = u.expandTarget(header.bits)
@@ -21,8 +21,8 @@ function createHeader (prev, nonce, bits, validProof = true) {
       version: 1,
       prevHash: prev ? getHash(prev) : u.nullHash,
       merkleRoot: u.nullHash,
-      timestamp: prev ? (prev.timestamp + 1) : Math.floor(Date.now() / 1000),
-      bits: bits || (prev ? prev.bits : u.compressTarget(maxTarget)),
+      timestamp: prev ? (prev.timestamp + 600) : Math.floor(Date.now() / 1000),
+      bits: bits || (prev ? prev.bits : u.compressTarget(testMaxTarget)),
       nonce: i++
     }
   } while (validProof !== isValidProofOfWork(header))
@@ -35,7 +35,7 @@ const testGenesis = {
   prevHash: u.nullHash,
   merkleRoot: u.nullHash,
   timestamp: Math.floor(Date.now() / 1000),
-  bits: u.compressTarget(maxTarget),
+  bits: u.compressTarget(testMaxTarget),
   nonce: 0
 }
 
@@ -55,8 +55,8 @@ function mine (chain, blocks, add = true) {
 
 module.exports = {
   testGenesis,
+  testMaxTarget,
   createHeader,
   isValidProofOfWork,
-  maxTarget,
   mine
 }
