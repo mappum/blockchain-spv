@@ -2,7 +2,7 @@
 
 const EventEmitter = require('events')
 const old = require('old')
-const { expandTarget } = require('bitcoin-util')
+const { expandTarget, compressTarget } = require('bitcoin-util')
 const { types } = require('bitcoin-protocol')
 const createHash = require('create-hash')
 const BN = require('bn.js')
@@ -13,7 +13,6 @@ const targetSpacing = 10 * 60 // 10 minutes
 const targetTimespan = retargetInterval * targetSpacing
 const maxTimeIncrease = 8 * 60 * 1000 // 8 hours
 const maxTarget = expandTarget(0x1d00ffff)
-const maxTargetBn = new BN(maxTarget.toString('hex'), 'hex')
 const maxReorgDepth = retargetInterval
 
 // TODO: keep track of chain work so we can use most-work chain
@@ -27,6 +26,10 @@ class Blockchain extends EventEmitter {
 
     this.store = opts.store || []
     this.indexed = opts.indexed
+
+    // should only be changed in tests, when we want really easy mining
+    this.maxTarget = opts.maxTarget || maxTarget
+    this.maxTargetBn = new BN(this.maxTarget.toString('hex'), 'hex')
 
     // initialize with starting header if the store is empty
     if (this.store.length === 0) {
@@ -180,7 +183,12 @@ class Blockchain extends EventEmitter {
         // make sure the retarget happened correctly
         let prevRetarget = this.getByHeight(header.height - retargetInterval, headers)
         let timespan = header.timestamp - prevRetarget.timestamp
-        target = calculateTarget(timespan, prevTarget)
+        target = calculateTarget(timespan, prevTarget, this.maxTarget, this.maxTargetBn)
+
+        let expectedBits = compressTarget(target)
+        if (header.bits !== expectedBits) {
+          throw Error('Incorrect difficulty')
+        }
       } else {
         // make sure the difficulty didn't change
         if (header.bits !== prev.bits) {
@@ -215,7 +223,7 @@ function getHash (header) {
 // calculates new PoW target hash/difficulty based
 // on time since previous adjustment,
 // and the previous targert
-function calculateTarget (timespan, prevTarget) {
+function calculateTarget (timespan, prevTarget, maxTarget, maxTargetBn) {
   // bound adjustment so attackers can't use an extreme timespan
   timespan = Math.max(timespan, targetTimespan / 4)
   timespan = Math.min(timespan, targetTimespan * 4)
@@ -233,6 +241,6 @@ function calculateTarget (timespan, prevTarget) {
   // convert target to Buffer
   let targetHex = targetBn.toString('hex')
   targetHex = targetHex.padStart(64, '0')
-  let target = new Buffer(targetHex, 'hex')
+  let target = Buffer.from(targetHex, 'hex')
   return target
 }
