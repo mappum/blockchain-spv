@@ -12,7 +12,7 @@ function isValidProofOfWork (header) {
 }
 
 function createHeader (prev, nonce, bits, validProof = true) {
-  let i = nonce || 0
+  let i = nonce || Math.floor(Math.random() * 10e6)
   let height = prev ? (prev.height + 1) : 0
   let header
   do {

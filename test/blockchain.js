@@ -337,5 +337,24 @@ test('add', (t) => {
     chain.add(toAdd)
   })
 
+  t.test('with valid reorg with indexing', (t) => {
+    let store = []
+    let chain = new Blockchain({
+      store,
+      start: testGenesis,
+      indexed: true
+    })
+    let toAdd = mine(chain, 10, false)
+    let toReorg = mine(chain, 2)
+    chain.add(toAdd)
+    try {
+      chain.getByHash(Blockchain.getHash(toReorg[0]))
+      t.fail()
+    } catch (err) {
+      t.equals(err.message, 'Header not found')
+    }
+    t.end()
+  })
+
   t.end()
 })
