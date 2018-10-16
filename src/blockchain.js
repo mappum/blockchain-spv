@@ -75,6 +75,11 @@ class Blockchain extends EventEmitter {
     let index = headers[0].height - this.store[0].height
     let toRemove = this.store.slice(index)
 
+    // make sure we this isn't a fake reorg (including headers which are already in the chain)
+    if (toRemove.length > 0 && getHash(headers[0]).equals(getHash(toRemove[0]))) {
+      throw Error('Headers overlap with current chain')
+    }
+
     // make sure headers are connected to each other and our chain,
     // and have valid PoW, timestamps, etc.
     this.verifyHeaders(headers)
