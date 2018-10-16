@@ -49,6 +49,7 @@ class Blockchain extends EventEmitter {
     }
   }
 
+  // TODO: ensure headers aren't too far ahead of current time
   add (headers) {
     // ensure 'headers' is an array
     if (!Array.isArray(headers)) {
