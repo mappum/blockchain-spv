@@ -160,13 +160,14 @@ class Blockchain extends EventEmitter {
       // time must be greater than median of last 11 timestamps
       // TODO: optimize by persisting arrays of sorted timestamps and sequential headers
       let prevEleven = []
-      let count = Math.min(11, header.height - 1)
-      for (let i = count; i > 0; i--) {
-        prevEleven.push(this.getByHeight(header.height - i, headers))
+      for (let i = 11; i > 0; i--) {
+        let height = Math.max(header.height - i, 0)
+        prevEleven.push(this.getByHeight(height, headers))
       }
       prevEleven = prevEleven.map(({ timestamp }) => timestamp).sort()
       let medianTimestamp = prevEleven[5]
-      if (header.timestamp <= medianTimestamp) {
+      // we use !> instead of <= to ensure we fail on non-number timestamp values
+      if (!(header.timestamp > medianTimestamp)) {
         throw Error('Timestamp is not greater than median of previous 11 timestamps')
       }
 
@@ -212,7 +213,8 @@ class Blockchain extends EventEmitter {
 
 module.exports = old(Blockchain)
 Object.assign(module.exports, {
-  getHash
+  getHash,
+  calculateTarget
 })
 
 function sha256 (data) {
