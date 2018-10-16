@@ -4,7 +4,6 @@ const test = require('tape')
 const Blockchain = require('../src/blockchain.js')
 const {
   mine,
-  createHeader,
   testGenesis,
   testMaxTarget
 } = require('./utils.js')
@@ -84,6 +83,20 @@ test('fork selection', (t) => {
     headers[0].timestamp += 1e6
     try {
       chain.add(headers)
+      t.fail()
+    } catch (err) {
+      t.pass(err.message)
+    }
+
+    t.end()
+  })
+
+  t.test('reject fake reorg (same fork)', (t) => {
+    let chain = new Blockchain({ start: testGenesis })
+    let headers = mine(chain, 10)
+    let headers2 = mine(chain, 10, false)
+    try {
+      chain.add(headers.concat(headers2))
       t.fail()
     } catch (err) {
       t.pass(err.message)
