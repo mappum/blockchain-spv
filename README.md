@@ -27,8 +27,9 @@ let chain = new Blockchain({
   start: bitcoinGenesis
 })
 
-// add arrays of headers, throws if invalid
-chain.add(header)
+// get the genesis block header 
+let block = chain.getByHeight(0)
+console.log(block)
 ```
 
 `Blockchain` stores and verifies block headers, and does SPV (light client) verification. It is compatible with Bitcoin and Bitcoin-derived blockchains.
