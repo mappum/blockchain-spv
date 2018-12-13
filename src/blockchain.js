@@ -30,6 +30,10 @@ class Blockchain extends EventEmitter {
     // should only be changed in tests, when we want really easy mining
     this.maxTarget = opts.maxTarget || maxTarget
     this.maxTargetBn = new BN(this.maxTarget.toString('hex'), 'hex')
+    this.maxTargetBits = compressTarget(this.maxTarget)
+
+    // should only be set for bitcoin-testnet
+    this.allowMinDifficultyBlocks = opts.allowMinDifficultyBlocks
 
     // initialize with starting header if the store is empty
     if (this.store.length === 0) {
@@ -197,6 +201,22 @@ class Blockchain extends EventEmitter {
         let expectedBits = compressTarget(target)
         if (header.bits !== expectedBits) {
           throw Error('Incorrect difficulty')
+        }
+      } else if (this.allowMinDifficultyBlocks) {
+        // special rule for testnet,
+        // sets difficulty to minimum if timestamp is 20 mins after previous
+        if (header.timestamp > prev.timestamp + targetSpacing * 2) {
+          target = this.maxTarget
+        } else {
+          // look backwards for first non-minimum difficulty
+          let cursor = prev
+          while (
+            cursor.height % retargetInterval !== 0 &&
+            cursor.bits === this.maxTargetBits
+          ) {
+            cursor = this.getByHeight(cursor.height - 1, headers)
+          }
+          target = expandTarget(cursor.bits)
         }
       } else {
         // make sure the difficulty didn't change
