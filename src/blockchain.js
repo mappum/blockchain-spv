@@ -167,7 +167,7 @@ class Blockchain extends EventEmitter {
       // TODO: optimize by persisting arrays of sorted timestamps and sequential headers
       let prevEleven = []
       for (let i = 11; i > 0; i--) {
-        let height = Math.max(header.height - i, 0)
+        let height = Math.max(header.height - i, this.store[0].height)
         prevEleven.push(this.getByHeight(height, headers))
       }
       prevEleven = prevEleven.map(({ timestamp }) => timestamp).sort()
