@@ -24,14 +24,14 @@
     "bitcoin-util": "^2.0.0",
     "bn.js": "^4.11.8",
     "create-hash": "^1.2.0",
-    "depcheck": "^0.6.9",
+    "depcheck": "^0.6.11",
     "map-deque": "0.0.2",
     "old": "^0.2.0"
   },
   "devDependencies": {
     "airtap": "^0.1.0",
     "faucet": "0.0.1",
-    "nyc": "^13.0.1",
+    "nyc": "^13.1.0",
     "standard": "^7.0.0",
     "tape": "^4.9.1"
   },
