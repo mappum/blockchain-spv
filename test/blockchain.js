@@ -303,7 +303,7 @@ test('add', (t) => {
       chain.add(headers)
       t.fail()
     } catch (err) {
-      t.equals(err.message, 'Unexpected difficulty change')
+      t.equals(err.message, 'Incorrect difficulty')
     }
     t.end()
   })

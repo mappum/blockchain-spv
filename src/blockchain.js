@@ -11,7 +11,7 @@ const MapDeque = require('map-deque')
 const retargetInterval = 2016
 const targetSpacing = 10 * 60 // 10 minutes
 const targetTimespan = retargetInterval * targetSpacing
-const maxTimeIncrease = 8 * 60 * 1000 // 8 hours
+const maxTimeIncrease = 8 * 60 * 60 // 8 hours
 const maxTarget = expandTarget(0x1d00ffff)
 const maxReorgDepth = retargetInterval
 
@@ -183,7 +183,7 @@ class Blockchain extends EventEmitter {
 
       // time must be within a certain bound of prev timestamp,
       // to prevent attacks where an attacker uses a time far in the future
-      // in order to bring down the difficulty and create a longer chain
+      // in order to bring down the difficulty and create a longer
       if (Math.abs(header.timestamp - prev.timestamp) > maxTimeIncrease) {
         throw Error('Timestamp is too far ahead of previous timestamp')
       }
@@ -192,21 +192,19 @@ class Blockchain extends EventEmitter {
       let shouldRetarget = header.height % retargetInterval === 0
       let prevTarget = expandTarget(prev.bits)
       let target
+      let expectedBits
       if (shouldRetarget) {
         // make sure the retarget happened correctly
         let prevRetarget = this.getByHeight(header.height - retargetInterval, headers)
         let timespan = header.timestamp - prevRetarget.timestamp
         target = calculateTarget(timespan, prevTarget, this.maxTarget, this.maxTargetBn)
-
-        let expectedBits = compressTarget(target)
-        if (header.bits !== expectedBits) {
-          throw Error('Incorrect difficulty')
-        }
+        expectedBits = compressTarget(target)
       } else if (this.allowMinDifficultyBlocks) {
         // special rule for testnet,
         // sets difficulty to minimum if timestamp is 20 mins after previous
         if (header.timestamp > prev.timestamp + targetSpacing * 2) {
           target = this.maxTarget
+          expectedBits = this.maxTargetBits
         } else {
           // look backwards for first non-minimum difficulty
           let cursor = prev
@@ -217,13 +215,16 @@ class Blockchain extends EventEmitter {
             cursor = this.getByHeight(cursor.height - 1, headers)
           }
           target = expandTarget(cursor.bits)
+          expectedBits = cursor.bits
         }
       } else {
-        // make sure the difficulty didn't change
-        if (header.bits !== prev.bits) {
-          throw Error('Unexpected difficulty change')
-        }
         target = prevTarget
+        expectedBits = prev.bits
+      }
+
+      // ensure header specifies correct difficulty
+      if (header.bits !== expectedBits) {
+        throw Error('Incorrect difficulty')
       }
 
       // check PoW
