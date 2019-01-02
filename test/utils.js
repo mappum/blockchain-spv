@@ -47,7 +47,7 @@ function mine (chain, blocks, add = true, timeSpacing = 600) {
   for (let i = 0; i < blocks; i++) {
     let bits
     if ((prev.height + 1) % 2016 === 0) {
-      let timespan = timeSpacing * 2016
+      let timespan = timeSpacing * 2015
       let prevTarget = u.expandTarget(prev.bits)
       let target = calculateTarget(timespan, prevTarget, testMaxTarget, testMaxTargetBn)
       bits = u.compressTarget(target)
