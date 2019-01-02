@@ -191,19 +191,17 @@ class Blockchain extends EventEmitter {
       // handle difficulty adjustments
       let shouldRetarget = header.height % retargetInterval === 0
       let prevTarget = expandTarget(prev.bits)
-      let target
       let expectedBits
       if (shouldRetarget) {
         // make sure the retarget happened correctly
         let prevRetarget = this.getByHeight(header.height - retargetInterval, headers)
-        let timespan = header.timestamp - prevRetarget.timestamp
-        target = calculateTarget(timespan, prevTarget, this.maxTarget, this.maxTargetBn)
+        let timespan = prev.timestamp - prevRetarget.timestamp
+        let target = calculateTarget(timespan, prevTarget, this.maxTarget, this.maxTargetBn)
         expectedBits = compressTarget(target)
       } else if (this.allowMinDifficultyBlocks) {
         // special rule for testnet,
         // sets difficulty to minimum if timestamp is 20 mins after previous
         if (header.timestamp > prev.timestamp + targetSpacing * 2) {
-          target = this.maxTarget
           expectedBits = this.maxTargetBits
         } else {
           // look backwards for first non-minimum difficulty
@@ -214,11 +212,9 @@ class Blockchain extends EventEmitter {
           ) {
             cursor = this.getByHeight(cursor.height - 1, headers)
           }
-          target = expandTarget(cursor.bits)
           expectedBits = cursor.bits
         }
       } else {
-        target = prevTarget
         expectedBits = prev.bits
       }
 
@@ -230,6 +226,7 @@ class Blockchain extends EventEmitter {
       // check PoW
       // bitcoin protocol uses the hash in
       // little-endian (reversed)
+      let target = expandTarget(header.bits)
       let hash = getHash(header).reverse()
       if (hash.compare(target) === 1) {
         throw Error('Hash is above target')
