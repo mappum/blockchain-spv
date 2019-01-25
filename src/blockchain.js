@@ -32,8 +32,9 @@ class Blockchain extends EventEmitter {
     this.maxTargetBn = new BN(this.maxTarget.toString('hex'), 'hex')
     this.maxTargetBits = compressTarget(this.maxTarget)
 
-    // should only be set for bitcoin-testnet
+    // should only be set for testnets/regtest
     this.allowMinDifficultyBlocks = opts.allowMinDifficultyBlocks
+    this.noRetargeting = opts.noRetargeting
 
     // initialize with starting header if the store is empty
     if (this.store.length === 0) {
@@ -183,8 +184,9 @@ class Blockchain extends EventEmitter {
 
       // time must be within a certain bound of prev timestamp,
       // to prevent attacks where an attacker uses a time far in the future
-      // in order to bring down the difficulty and create a longer
-      if (Math.abs(header.timestamp - prev.timestamp) > maxTimeIncrease) {
+      // in order to bring down the difficulty and create a longer.
+      // ignored if retargeting is turned off (e.g. in tests)
+      if (!this.noRetargeting && Math.abs(header.timestamp - prev.timestamp) > maxTimeIncrease) {
         throw Error('Timestamp is too far ahead of previous timestamp')
       }
 
@@ -192,13 +194,13 @@ class Blockchain extends EventEmitter {
       let shouldRetarget = header.height % retargetInterval === 0
       let prevTarget = expandTarget(prev.bits)
       let expectedBits
-      if (shouldRetarget) {
+      if (shouldRetarget && !this.noRetargeting) {
         // make sure the retarget happened correctly
         let prevRetarget = this.getByHeight(header.height - retargetInterval, headers)
         let timespan = prev.timestamp - prevRetarget.timestamp
         let target = calculateTarget(timespan, prevTarget, this.maxTarget, this.maxTargetBn)
         expectedBits = compressTarget(target)
-      } else if (this.allowMinDifficultyBlocks) {
+      } else if (this.allowMinDifficultyBlocks && !this.noRetargeting) {
         // special rule for testnet,
         // sets difficulty to minimum if timestamp is 20 mins after previous
         if (header.timestamp > prev.timestamp + targetSpacing * 2) {
